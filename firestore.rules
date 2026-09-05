@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isCourseOwner(courseId) {
+      return isAuthenticated() && get(/databases/$(database)/documents/courses/$(courseId)).data.ownerId == request.auth.uid;
+    }
+
+    // Courses
+    match /courses/{courseId} {
+      allow get: if isAuthenticated();
+      allow list: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+
+      // Documents (Directly under course)
+      match /documents/{docId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && get(/databases/$(database)/documents/courses/$(courseId)).data.ownerId == request.auth.uid;
+      }
+
+      // Sessions
+      match /sessions/{sessionId} {
+        allow read, write: if isCourseOwner(courseId);
+
+        // Notes
+        match /notes/{noteId} {
+          allow read, write: if isCourseOwner(courseId);
+        }
+
+        // Assessments
+        match /assessments/{assessmentId} {
+          allow read, write: if isCourseOwner(courseId);
+        }
+      }
+    }
+
+    // User Progress
+    match /userProgress/{progressId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // Shared Codes
+    match /shared_codes/{code} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && 
+        get(/databases/$(database)/documents/courses/$(request.resource.data.courseId)).data.ownerId == request.auth.uid;
+    }
+
+    // Assessment Attempts
+    match /assessment_attempts/{attemptId} {
+      allow read, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Live AI Learning Companion",
+  "description": "An interactive educational platform that simulates a real classroom tutor with structured sessions, notes, and assessments.",
+  "requestFramePermissions": [
+    "microphone",
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "entities": {
+    "AssessmentAttempt": {
+      "title": "AssessmentAttempt",
+      "description": "Record of a student's attempt at a final assessment.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "courseTitle": { "type": "string" },
+        "scores": {
+          "type": "object",
+          "properties": {
+            "mcq": { "type": "number" },
+            "msq": { "type": "number" },
+            "descriptive": { "type": "number" },
+            "total": { "type": "number" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "courseId", "scores", "createdAt"]
+    },
+    "SharedCode": {
+      "title": "SharedCode",
+      "description": "Mapping for sharing courses with a short code.",
+      "type": "object",
+      "properties": {
+        "courseId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["courseId"]
+    },
+    "Course": {
+      "title": "Course",
+      "description": "A structured learning course extracted from materials.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Course title" },
+        "description": { "type": "string", "description": "Course overview" },
+        "structure": { "type": "object", "description": "Units, topics, and subtopics" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "ownerId": { "type": "string", "description": "UID of the student who created it" }
+      },
+      "required": ["title", "structure", "ownerId"]
+    },
+    "Session": {
+      "title": "Session",
+      "description": "A specific teaching session within a course.",
+      "type": "object",
+      "properties": {
+        "courseId": { "type": "string" },
+        "topic": { "type": "string" },
+        "objectives": { "type": "array", "items": { "type": "string" } },
+        "duration": { "type": "number" },
+        "status": { "type": "string", "enum": ["planned", "in-progress", "completed"] },
+        "order": { "type": "number" }
+      },
+      "required": ["courseId", "topic", "status", "order"]
+    },
+    "Note": {
+      "title": "Note",
+      "description": "Classroom notes generated for a session.",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "content": { "type": "string", "description": "Markdown content of the notes" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sessionId", "content"]
+    },
+    "Assessment": {
+      "title": "Assessment",
+      "description": "A set of questions to evaluate student understanding.",
+      "type": "object",
+      "properties": {
+        "sessionId": { "type": "string" },
+        "questions": { "type": "array", "description": "List of questions and answers" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["sessionId", "questions"]
+    },
+    "UserProgress": {
+      "title": "UserProgress",
+      "description": "Tracking student performance.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "courseId": { "type": "string" },
+        "completedSessions": { "type": "array", "items": { "type": "string" } },
+        "assessmentScores": { "type": "object" }
+      },
+      "required": ["userId", "courseId"]
+    },
+    "Document": {
+      "title": "Document",
+      "description": "A PDF or PPT document processed for teaching.",
+      "type": "object",
+      "properties": {
+        "courseId": { "type": "string" },
+        "title": { "type": "string" },
+        "type": { "type": "string", "enum": ["pdf", "ppt"] },
+        "pages": { 
+          "type": "array", 
+          "items": { 
+            "type": "object",
+            "properties": {
+              "pageNumber": { "type": "number" },
+              "text": { "type": "string" },
+              "imageURL": { "type": "string" }
+            }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["courseId", "title", "type", "pages"]
+    }
+  },
+  "firestore": {
+    "/courses/{courseId}": { "schema": "Course", "description": "Courses collection" },
+    "/courses/{courseId}/sessions/{sessionId}": { "schema": "Session", "description": "Sessions within a course" },
+    "/courses/{courseId}/sessions/{sessionId}/notes/{noteId}": { "schema": "Note", "description": "Notes for a session" },
+    "/courses/{courseId}/sessions/{sessionId}/assessments/{assessmentId}": { "schema": "Assessment", "description": "Assessments for a session" },
+    "/courses/{courseId}/documents/{docId}": { "schema": "Document", "description": "Documents attached to a course" },
+    "/userProgress/{progressId}": { "schema": "UserProgress", "description": "User progress tracking" },
+    "/shared_codes/{code}": { "schema": "SharedCode", "description": "Mapping for sharing courses with a short code" },
+    "/assessment_attempts/{attemptId}": { "schema": "AssessmentAttempt", "description": "Assessment attempts collection" }
+  }
+}
