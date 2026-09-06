@@ -64,6 +64,11 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
 
+    // User Profile and Attendance Log
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;

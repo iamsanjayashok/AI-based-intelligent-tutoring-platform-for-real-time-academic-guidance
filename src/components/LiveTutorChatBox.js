@@ -110,7 +110,7 @@ export default function LiveTutorChatBox({
         <AnimatePresence initial={false}>
           {messages.map((m, i) => (
             <motion.div
-              key={i}
+              key={m.id || i}
               initial={{ opacity: 0, y: 8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.15 }}
@@ -121,10 +121,10 @@ export default function LiveTutorChatBox({
                 {m.role === 'user' ? (
                   <>
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      {m.isVoiceDraft ? 'You (Speaking...)' : 'You'}
+                      {m.isVoiceDraft ? 'You (Speaking...)' : m.isVoice ? 'You (Voice)' : 'You'}
                     </span>
                     <div className="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
-                      {m.isVoiceDraft ? <Mic size={10} className="animate-pulse" /> : <User size={10} />}
+                      {m.isVoice ? <Mic size={10} className={m.isVoiceDraft ? "animate-pulse" : ""} /> : <User size={10} />}
                     </div>
                   </>
                 ) : (

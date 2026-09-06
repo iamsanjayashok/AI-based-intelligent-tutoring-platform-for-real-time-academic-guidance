@@ -80,6 +80,27 @@
       },
       "required": ["sessionId", "questions"]
     },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Student profile details and attendance history.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "organization": { "type": "string" },
+        "academicYear": { "type": "string" },
+        "streamBranch": { "type": "string" },
+        "attendanceLog": { "type": "object" },
+        "totalStudyHours": { "type": "number" },
+        "currentStreak": { "type": "number" },
+        "maxStreak": { "type": "number" },
+        "lastLoginDate": { "type": "string" },
+        "daysLoggedIn": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId"]
+    },
     "UserProgress": {
       "title": "UserProgress",
       "description": "Tracking student performance.",
@@ -124,6 +145,7 @@
     "/courses/{courseId}/documents/{docId}": { "schema": "Document", "description": "Documents attached to a course" },
     "/userProgress/{progressId}": { "schema": "UserProgress", "description": "User progress tracking" },
     "/shared_codes/{code}": { "schema": "SharedCode", "description": "Mapping for sharing courses with a short code" },
-    "/assessment_attempts/{attemptId}": { "schema": "AssessmentAttempt", "description": "Assessment attempts collection" }
+    "/assessment_attempts/{attemptId}": { "schema": "AssessmentAttempt", "description": "Assessment attempts collection" },
+    "/users/{userId}": { "schema": "UserProfile", "description": "User profile and attendance history" }
   }
 }

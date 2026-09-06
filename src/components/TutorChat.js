@@ -5,9 +5,11 @@ import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
 import { generateNotes, generateSubtopicAssessment } from '../services/gemini';
 import { collection, query, getDocs, limit } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
+import { logStudyMinutes } from '../services/userService';
 
 import LiveTutorChatBox from './LiveTutorChatBox';
+import SubtopicSlideViewer from './SubtopicSlideViewer';
 
 const getGenAI = (customKey) => {
   const key = customKey || localStorage.getItem('CUSTOM_GEMINI_API_KEY') || process.env.GEMINI_API_KEY || "";
@@ -135,6 +137,18 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
   const isSpeakingRef = useRef(false);
   const ignoreIncomingAudioRef = useRef(false);
   const aiSettingsRef = useRef({ volume: 1.0 });
+  const currentUserSpeechRef = useRef('');
+  const activeUserDraftIdRef = useRef(null);
+  const accumulatedFinalTextRef = useRef('');
+  const bufferedAudioChunksRef = useRef([]);
+  const bufferedTutorTextRef = useRef('');
+  const tutorTurnCompleteWhileMicOnRef = useRef(false);
+  const hasStreamedAudioThisTurnRef = useRef(false);
+  const activeTutorTurnIdRef = useRef(null);
+  const isSendingRef = useRef(false);
+  const hasSpeechRecognitionSupportRef = useRef(
+    typeof window !== 'undefined' && Boolean(window.SpeechRecognition || window.webkitSpeechRecognition)
+  );
 
   useEffect(() => {
     isSpeakingRef.current = isSpeaking;
@@ -214,82 +228,117 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
     registerProcessor('audio-processor', AudioProcessor);
   `;
 
-  // Speech-to-Text handler: updates the user transcript in real-time as words are spoken
-  // and finalizes the sentence when the speaker completes or pauses.
-  const handleUserSpokenSentence = (sentenceText, isFinal) => {
-    if (!sentenceText || !sentenceText.trim()) return;
-    const clean = sentenceText.trim();
+  // Speech-to-Text handler: updates the single voice draft bubble in real-time as words are spoken
+  const updateActiveVoiceDraft = (cleanText) => {
+    // Only accept transcription updates while the mic is actively recording and an active draft session exists
+    if (!isMicOnRef.current || !activeUserDraftIdRef.current) return;
+    if (!cleanText || !cleanText.trim()) return;
+    const clean = cleanText.trim();
+    const draftId = activeUserDraftIdRef.current;
 
     setMessages(prev => {
-      const lastIdx = prev.length - 1;
-      const last = lastIdx >= 0 ? prev[lastIdx] : null;
-
-      // 1. If currently updating an active voice draft
-      if (last && last.role === 'user' && last.isVoiceDraft) {
+      const idx = prev.findIndex(m => m.id === draftId);
+      if (idx !== -1) {
+        const prevText = prev[idx].text || '';
+        let newText = clean;
+        if (clean.length < prevText.length && prevText.toLowerCase().includes(clean.toLowerCase())) {
+          newText = prevText;
+        }
+        currentUserSpeechRef.current = newText;
         const updated = [...prev];
-        updated[lastIdx] = {
-          ...last,
-          text: clean,
-          isVoiceDraft: !isFinal,
+        updated[idx] = {
+          ...updated[idx],
+          text: newText,
+          isVoiceDraft: true,
           isVoice: true,
           timestamp: Date.now()
         };
         return updated;
       }
-
-      // 2. If the user finished speaking recently (within 4s), and an engine/server refinement arrives
-      if (last && last.role === 'user' && last.isVoice && Date.now() - (last.timestamp || 0) < 4000) {
-        const cLower = clean.toLowerCase();
-        const lLower = last.text.toLowerCase();
-        if (cLower === lLower || cLower.startsWith(lLower) || lLower.startsWith(cLower)) {
-          const updated = [...prev];
-          updated[lastIdx] = {
-            ...last,
-            text: clean.length >= last.text.length ? clean : last.text,
-            isVoiceDraft: !isFinal,
-            isVoice: true,
-            timestamp: Date.now()
-          };
-          return updated;
+      currentUserSpeechRef.current = clean;
+      return [
+        ...prev,
+        {
+          id: draftId,
+          role: 'user',
+          text: clean,
+          isVoiceDraft: true,
+          isVoice: true,
+          timestamp: Date.now()
         }
-      }
-
-      // 3. New speech utterance: create user message bubble
-      return [...prev, {
-        role: 'user',
-        text: clean,
-        isVoiceDraft: !isFinal,
-        isVoice: true,
-        timestamp: Date.now()
-      }];
+      ];
     });
+  };
+
+  const handleUserSpokenSentence = (sentenceText) => {
+    updateActiveVoiceDraft(sentenceText);
+  };
+
+  const mergeTextChunks = (prevText, nextChunk) => {
+    if (!prevText) return nextChunk || '';
+    if (!nextChunk) return prevText;
+    if (nextChunk.startsWith(prevText)) return nextChunk;
+    if (prevText.endsWith(nextChunk)) return prevText;
+    
+    // Check for suffix/prefix overlap (up to 60 characters)
+    const maxOverlap = Math.min(prevText.length, nextChunk.length, 60);
+    for (let len = maxOverlap; len > 0; len--) {
+      if (prevText.slice(-len) === nextChunk.slice(0, len)) {
+        return prevText + nextChunk.slice(len);
+      }
+    }
+    return prevText + nextChunk;
+  };
+
+  const appendBufferedTutorText = (newChunk) => {
+    if (!newChunk) return;
+    bufferedTutorTextRef.current = mergeTextChunks(bufferedTutorTextRef.current || '', newChunk);
   };
 
   // Live Tutor Spoken Words handler: appends words spoken by the AI tutor in real-time
   const handleTutorSpokenText = (chunkText, isFinished) => {
     if (!chunkText && !isFinished) return;
     setMessages(prev => {
-      const lastIdx = prev.length - 1;
-      const last = lastIdx >= 0 ? prev[lastIdx] : null;
-
-      if (last && last.role === 'model' && last.isDraft) {
-        let combined = last.text || '';
-        if (chunkText && !combined.endsWith(chunkText)) {
-          combined += chunkText;
+      // Find active tutor draft if one exists
+      let targetId = activeTutorTurnIdRef.current;
+      
+      if (!targetId) {
+        // Look for existing model draft at the end of messages
+        const lastIdx = prev.length - 1;
+        const last = lastIdx >= 0 ? prev[lastIdx] : null;
+        if (last && last.role === 'model' && last.isDraft) {
+          targetId = last.id;
+          activeTutorTurnIdRef.current = targetId;
         }
-        const updated = [...prev];
-        updated[lastIdx] = {
-          ...last,
-          text: combined,
-          isDraft: !isFinished,
-          timestamp: Date.now()
-        };
-        return updated;
+      }
+
+      if (targetId) {
+        const existingIdx = prev.findIndex(m => m.id === targetId);
+        if (existingIdx !== -1) {
+          const existing = prev[existingIdx];
+          const combined = chunkText ? mergeTextChunks(existing.text || '', chunkText) : (existing.text || '');
+          const updated = [...prev];
+          updated[existingIdx] = {
+            ...existing,
+            text: combined,
+            isDraft: !isFinished,
+            timestamp: Date.now()
+          };
+          if (isFinished) {
+            activeTutorTurnIdRef.current = null;
+          }
+          return updated;
+        }
       }
 
       // Start of a new tutor turn
       if (chunkText) {
+        const newId = `tutor_${Date.now()}`;
+        if (!isFinished) {
+          activeTutorTurnIdRef.current = newId;
+        }
         return [...prev, {
+          id: newId,
           role: 'model',
           text: chunkText,
           isDraft: !isFinished,
@@ -335,20 +384,14 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
       rec.lang = langMap[aiSettingsRef.current?.language] || 'en-US';
 
       rec.onresult = (event) => {
-        let interim = '';
-        let finalStr = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const transcript = event.results[i][0].transcript;
-          if (event.results[i].isFinal) {
-            finalStr += transcript;
-          } else {
-            interim += transcript;
-          }
+        let currentSessionTranscript = '';
+        for (let i = 0; i < event.results.length; ++i) {
+          currentSessionTranscript += event.results[i][0].transcript;
         }
-
-        const sentence = (finalStr || interim).trim();
-        if (sentence) {
-          handleUserSpokenSentence(sentence, Boolean(finalStr));
+        const prefix = accumulatedFinalTextRef.current ? (accumulatedFinalTextRef.current + ' ') : '';
+        const combined = (prefix + currentSessionTranscript).trim();
+        if (combined) {
+          updateActiveVoiceDraft(combined);
         }
       };
 
@@ -361,6 +404,9 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
       rec.onend = () => {
         if (isMicOnRef.current && isLiveRef.current) {
           try {
+            if (currentUserSpeechRef.current) {
+              accumulatedFinalTextRef.current = currentUserSpeechRef.current;
+            }
             rec.start();
           } catch (e) {}
         }
@@ -368,7 +414,7 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
 
       rec.start();
       speechRecognitionRef.current = rec;
-      addLog("Real-time STT listener active.");
+      addLog("Mic is LIVE. Real-time STT listening...");
     } catch (err) {
       console.warn("Could not start Speech Recognition:", err);
     }
@@ -377,6 +423,9 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
   const stopSpeechRecognition = () => {
     if (speechRecognitionRef.current) {
       try {
+        speechRecognitionRef.current.onresult = null;
+        speechRecognitionRef.current.onerror = null;
+        speechRecognitionRef.current.onend = null;
         speechRecognitionRef.current.stop();
       } catch (e) {}
       speechRecognitionRef.current = null;
@@ -427,26 +476,29 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
           audioWorkletNodeRef.current = workletNode;
           
           workletNode.port.onmessage = (event) => {
-            if (liveSessionRef.current && isLiveRef.current && isMicOnRef.current && isMicEnabledRef.current) {
-              const pcmData = event.data; // Int16Array
-              const uint8 = new Uint8Array(pcmData.buffer);
-              
-              // Telemetry: Check if we are picking up sound
-              let max = 0;
-              for (let i = 0; i < pcmData.length; i++) {
-                const abs = Math.abs(pcmData[i]);
-                if (abs > max) max = abs;
-              }
-              if (Math.random() > 0.99) {
-                if (max < 100) addLog("Mic seems very quiet - check hardware.");
-                else addLog(`Mic Activity Detected (Peak: ${max})`);
-              }
+            const pcmData = event.data; // Int16Array
+            
+            // Telemetry: Check if we are picking up sound for waveform animation
+            let max = 0;
+            for (let i = 0; i < pcmData.length; i++) {
+              const abs = Math.abs(pcmData[i]);
+              if (abs > max) max = abs;
+            }
+            if (Math.random() > 0.99) {
+              if (max < 100) addLog("Mic seems very quiet - check hardware.");
+              else addLog(`Mic Activity Detected (Peak: ${max})`);
+            }
 
+            // Stream PCM audio to Gemini Live API while microphone is active
+            if (liveSessionRef.current && isLiveRef.current && isMicOnRef.current && isMicEnabledRef.current) {
+              const uint8 = new Uint8Array(pcmData.buffer);
               let binary = "";
               for (let i = 0; i < uint8.length; i++) {
                 binary += String.fromCharCode(uint8[i]);
               }
               const base64Data = btoa(binary);
+
+              hasStreamedAudioThisTurnRef.current = true;
 
               const p = liveSessionRef.current.sendRealtimeInput({
                 audio: {
@@ -454,13 +506,8 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
                   mimeType: 'audio/pcm;rate=16000'
                 }
               });
-              if (p && typeof p.then === 'function') {
-                p.then(() => {
-                  if (Math.random() > 0.995) addLog("Realtime Audio Piped.");
-                }).catch(err => {
-                  console.error("Error sending realtime audio:", err);
-                  addLog(`Send Error: ${err.message}`);
-                });
+              if (p && typeof p.catch === 'function') {
+                p.catch(err => console.error("Error sending realtime audio:", err));
               }
             }
           };
@@ -498,7 +545,7 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
           onmessage: (message) => {
             const sc = message.serverContent;
             
-            // 1. Handle User Speech Transcription (STT)
+            // 1. Handle User Speech Transcription (STT) in real time
             const inputTx = sc?.inputTranscription || 
                             message.inputTranscription || 
                             sc?.inputAudioTranscription || 
@@ -506,14 +553,11 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
                             sc?.transcription ||
                             message.transcription;
             
-            if (inputTx) {
+            if (inputTx && isMicOnRef.current && activeUserDraftIdRef.current) {
               const text = typeof inputTx === 'string' ? inputTx : (inputTx.text || inputTx.transcription || '');
-              const isFinished = !!(inputTx.finished || inputTx.done || inputTx.completed);
               if (text && text.trim()) {
-                addLog(`User STT: "${text.substring(0, 20)}..." [${isFinished ? 'Finished' : 'Draft'}]`);
-                handleUserSpokenSentence(text.trim(), isFinished);
-              } else if (isFinished) {
-                setMessages(prev => prev.map(m => (m.role === 'user' && m.isVoiceDraft) ? { ...m, isVoiceDraft: false } : m));
+                addLog(`Live STT: "${text.trim().substring(0, 25)}..."`);
+                updateActiveVoiceDraft(text.trim());
               }
             }
 
@@ -523,11 +567,26 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
                              sc?.outputAudioTranscription ||
                              message.outputAudioTranscription;
 
+            const isTurnComplete = !!(sc?.turnComplete);
+
             if (outputTx) {
               const outText = typeof outputTx === 'string' ? outputTx : (outputTx.text || outputTx.transcription || '');
-              const isFinished = !!(outputTx.finished || outputTx.done || sc?.turnComplete);
               if (outText) {
-                handleTutorSpokenText(outText, isFinished);
+                if (isMicOnRef.current) {
+                  appendBufferedTutorText(outText);
+                } else {
+                  handleTutorSpokenText(outText, isTurnComplete);
+                }
+              }
+            } else if (sc?.modelTurn?.parts) {
+              for (const part of sc.modelTurn.parts) {
+                if (part.text) {
+                  if (isMicOnRef.current) {
+                    appendBufferedTutorText(part.text);
+                  } else {
+                    handleTutorSpokenText(part.text, isTurnComplete);
+                  }
+                }
               }
             }
 
@@ -535,29 +594,39 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
             if (sc?.interrupted) {
               addLog("AI Interrupted by user.");
               interruptAI();
-              setMessages(prev => prev.map(m => m.isDraft ? { ...m, isDraft: false } : m));
             }
 
-            // 4. Handle Model Turn Parts (Inline audio data and any text parts)
+            // 4. Handle Model Turn Parts (Inline audio data)
             if (sc?.modelTurn?.parts) {
               for (const part of sc.modelTurn.parts) {
-                if (part.text) {
-                  handleTutorSpokenText(part.text, false);
-                }
                 if (part.inlineData) {
                   const binary = atob(part.inlineData.data);
                   const bytes = new Uint8Array(binary.length);
                   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-                  audioQueueRef.current.push(new Int16Array(bytes.buffer));
-                  if (!isPlayingRef.current) playNextInQueue().catch(e => console.error(e));
+                  const pcm = new Int16Array(bytes.buffer);
+
+                  if (isMicOnRef.current) {
+                    // Buffer incoming audio while mic is ON!
+                    // This ensures the AI tutor NEVER speaks while mic is on (no echo/feedback)
+                    // and will start to speak once mic button is turned off.
+                    bufferedAudioChunksRef.current.push(pcm);
+                  } else {
+                    audioQueueRef.current.push(pcm);
+                    if (!isPlayingRef.current) playNextInQueue().catch(e => console.error(e));
+                  }
                 }
               }
             }
 
-            // 5. Turn Complete: finalize all drafts
+            // 5. Turn Complete: finalize tutor draft if not holding mic
             if (sc?.turnComplete) {
-              setMessages(prev => prev.map(m => (m.isDraft || m.isVoiceDraft) ? { ...m, isDraft: false, isVoiceDraft: false } : m));
-              setLoading(false);
+              if (!isMicOnRef.current) {
+                setMessages(prev => prev.map(m => (m.role === 'model' && m.isDraft) ? { ...m, isDraft: false } : m));
+                activeTutorTurnIdRef.current = null;
+                setLoading(false);
+              } else {
+                tutorTurnCompleteWhileMicOnRef.current = true;
+              }
             }
           },
           onopen: () => {
@@ -565,6 +634,24 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
             setIsLive(true);
             isLiveRef.current = true;
             if (isMicOnRef.current) {
+              const draftId = `voice_user_${Date.now()}`;
+              activeUserDraftIdRef.current = draftId;
+              currentUserSpeechRef.current = '';
+              accumulatedFinalTextRef.current = '';
+              bufferedAudioChunksRef.current = [];
+              bufferedTutorTextRef.current = '';
+              tutorTurnCompleteWhileMicOnRef.current = false;
+              setMessages(prev => [
+                ...prev,
+                {
+                  id: draftId,
+                  role: 'user',
+                  text: '',
+                  isVoiceDraft: true,
+                  isVoice: true,
+                  timestamp: Date.now()
+                }
+              ]);
               startSpeechRecognition();
             }
           },
@@ -623,6 +710,9 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
   const handleToggleLiveTutor = async () => {
     if (isLive || isConnectingLive) {
       addLog("Master Controller: Turning Live AI Tutor OFF");
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
       stopLiveSession();
     } else {
       addLog("Master Controller: Turning Live AI Tutor ON");
@@ -633,6 +723,12 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
 
   const playNextInQueue = async () => {
     try {
+      if (isMicOnRef.current) {
+        audioQueueRef.current = [];
+        isPlayingRef.current = false;
+        setIsSpeaking(false);
+        return;
+      }
       if (audioQueueRef.current.length === 0 || !audioContextRef.current) {
         isPlayingRef.current = false;
         setIsSpeaking(false);
@@ -673,6 +769,9 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
 
   const stopLiveSession = () => {
     interruptAI();
+    activeUserDraftIdRef.current = null;
+    currentUserSpeechRef.current = '';
+    accumulatedFinalTextRef.current = '';
     if (liveSessionRef.current) {
       try {
         liveSessionRef.current.close();
@@ -703,7 +802,11 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
   };
 
   const interruptAI = () => {
+    activeTutorTurnIdRef.current = null;
     audioQueueRef.current = [];
+    bufferedAudioChunksRef.current = [];
+    bufferedTutorTextRef.current = '';
+    tutorTurnCompleteWhileMicOnRef.current = false;
     if (currentAudioSourceRef.current) {
       try {
         currentAudioSourceRef.current.stop();
@@ -716,6 +819,41 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
     }
+    setMessages(prev => prev.map(m => (m.role === 'model' && m.isDraft) ? { ...m, isDraft: false } : m));
+  };
+
+  const triggerTutorResponse = async (spokenText) => {
+    const clean = spokenText.trim();
+    if (!clean) return;
+
+    interruptAI();
+    activeTutorTurnIdRef.current = null;
+
+    if (isLive && liveSessionRef.current) {
+      setLoading(true);
+      if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+        audioContextRef.current.resume().catch(e => console.warn("AudioContext resume error:", e));
+      }
+      const promptText = `[Student in ${aiSettings.language} asks]: ${clean}. (Please answer directly in ${aiSettings.language})`;
+      try {
+        if (typeof liveSessionRef.current.sendClientContent === 'function') {
+          liveSessionRef.current.sendClientContent({
+            turns: [{ role: 'user', parts: [{ text: promptText }] }],
+            turnComplete: true
+          });
+        } else if (typeof liveSessionRef.current.sendRealtimeInput === 'function') {
+          liveSessionRef.current.sendRealtimeInput({ text: promptText });
+        }
+      } catch (err) {
+        console.error("Error sending voice question to live session:", err);
+        addLog(`Send Live Error: ${err.message}`);
+        await handleTextOnlyReply(clean);
+      }
+      return;
+    }
+
+    // When live session is off, generate text response only (no voice)
+    await handleTextOnlyReply(clean);
   };
 
   const handleMicToggle = async () => {
@@ -730,50 +868,124 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
     const newState = !isMicOn;
     setIsMicOn(newState);
     isMicOnRef.current = newState;
-    addLog(`Microphone ${newState ? "Listening" : "Muted"}.`);
     
     if (newState) {
+      // 1. Immediately silence any active tutor speech
       interruptAI();
-      addLog("Microphone is now LIVE.");
+      hasStreamedAudioThisTurnRef.current = false;
+      activeTutorTurnIdRef.current = null;
+      addLog("Microphone is LIVE (AI tutor silenced). Speak now...");
+      
+      // 2. Prepare single draft bubble for user's voice
+      const draftId = `voice_user_${Date.now()}`;
+      activeUserDraftIdRef.current = draftId;
+      currentUserSpeechRef.current = '';
+      accumulatedFinalTextRef.current = '';
+      bufferedAudioChunksRef.current = [];
+      bufferedTutorTextRef.current = '';
+      tutorTurnCompleteWhileMicOnRef.current = false;
+
+      // Immediately show the draft bubble in the chat so user sees their speech live
+      setMessages(prev => [
+        ...prev,
+        {
+          id: draftId,
+          role: 'user',
+          text: '',
+          isVoiceDraft: true,
+          isVoice: true,
+          timestamp: Date.now()
+        }
+      ]);
+
       if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
         audioContextRef.current.resume().catch(e => console.error(e));
       }
       startSpeechRecognition();
     } else {
-      addLog("Microphone is now MUTED.");
+      // User turned off mic: Stop recording, finalize speech, and start AI tutor response!
+      addLog("Microphone is now OFF. Processing response...");
       stopSpeechRecognition();
+
+      const spokenText = (currentUserSpeechRef.current || '').trim();
+      const draftId = activeUserDraftIdRef.current;
+      activeUserDraftIdRef.current = null;
+      currentUserSpeechRef.current = '';
+      accumulatedFinalTextRef.current = '';
+
+      const audioWasStreamed = hasStreamedAudioThisTurnRef.current;
+      hasStreamedAudioThisTurnRef.current = false;
+
+      // Finalize single user voice message in chat with isVoice: true
+      setMessages(prev => {
+        let updated = prev;
+        if (draftId) {
+          if (spokenText) {
+            updated = updated.map(m => m.id === draftId ? { ...m, text: spokenText, isVoiceDraft: false, isVoice: true } : m);
+          } else {
+            updated = updated.filter(m => m.id !== draftId);
+          }
+        } else if (spokenText) {
+          updated = [...updated, { id: `voice_${Date.now()}`, role: 'user', text: spokenText, isVoiceDraft: false, isVoice: true }];
+        }
+        // Guarantee no stray or unfinalized empty voice drafts remain in messages
+        return updated.filter(m => !(m.isVoiceDraft && (!m.text || !m.text.trim())));
+      });
+
+      // If audio was streamed directly to Gemini Live API over WebSocket:
+      if (isLive && liveSessionRef.current && audioWasStreamed) {
+        // Notify Gemini Live that user speech stream has concluded
+        try {
+          liveSessionRef.current.sendRealtimeInput({ audioStreamEnd: true });
+        } catch (err) {
+          console.warn("audioStreamEnd notification error:", err);
+        }
+
+        // Flush any audio chunks or text that arrived while mic was held
+        if (bufferedAudioChunksRef.current.length > 0 || bufferedTutorTextRef.current) {
+          addLog(`Flushing buffered AI Tutor response (${bufferedAudioChunksRef.current.length} audio chunks)...`);
+          if (bufferedTutorTextRef.current) {
+            const isTurnDone = tutorTurnCompleteWhileMicOnRef.current;
+            handleTutorSpokenText(bufferedTutorTextRef.current, isTurnDone);
+            bufferedTutorTextRef.current = '';
+            tutorTurnCompleteWhileMicOnRef.current = false;
+          }
+          if (bufferedAudioChunksRef.current.length > 0) {
+            audioQueueRef.current.push(...bufferedAudioChunksRef.current);
+            bufferedAudioChunksRef.current = [];
+            if (!isPlayingRef.current) {
+              playNextInQueue().catch(e => console.error(e));
+            }
+          }
+        }
+        // CRITICAL FIX: Do NOT call triggerTutorResponse! Gemini Live is already computing
+        // the response to the user's voice audio. Calling triggerTutorResponse here was
+        // what caused the duplicate response.
+      } else if (spokenText) {
+        // Only if audio was NOT streamed directly to Gemini Live (e.g. worklet inactive or offline fallback)
+        triggerTutorResponse(spokenText);
+      }
     }
   };
 
   const speakText = (text, language) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      setIsSpeaking(false);
-      return;
-    }
-    try {
+    // Browser SpeechSynthesisUtterance is completely disabled.
+    // Audio voice replies are only emitted via Gemini Live API WebSocket stream when AI Tutor is ON.
+    // When AI Tutor is OFF, textual chat conversation must strictly remain text-only with NO voice output.
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();
-      const plainText = text.replace(/[*#_`\[\]()>-]/g, ' ').replace(/\s+/g, ' ').trim();
-      const utterance = new SpeechSynthesisUtterance(plainText);
-      if (language) {
-        const langLower = language.toLowerCase();
-        if (langLower.includes('spanish')) utterance.lang = 'es-ES';
-        else if (langLower.includes('french')) utterance.lang = 'fr-FR';
-        else if (langLower.includes('german')) utterance.lang = 'de-DE';
-        else if (langLower.includes('hindi')) utterance.lang = 'hi-IN';
-        else utterance.lang = 'en-US';
-      }
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
-      window.speechSynthesis.speak(utterance);
-    } catch (err) {
-      console.warn("SpeechSynthesis error:", err);
-      setIsSpeaking(false);
     }
+    setIsSpeaking(false);
   };
 
-  const fallbackTextAndSpeech = async (userMsg) => {
+  const handleTextOnlyReply = async (userMsg) => {
     setLoading(true);
+    // Explicitly cancel any speech synthesis so NO voice output plays
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+    setIsSpeaking(false);
+
     try {
       const ai = getGenAI();
       const response = await ai.models.generateContent({
@@ -782,18 +994,18 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
 Language: ${aiSettings.language}.
 Tone: ${aiSettings.tone}.
 Context: ${subtopic?.content || ""}.
-Explain clearly and conversationally as if speaking out loud to the student. Keep it concise, friendly, and instructive.`,
+Explain clearly and conversationally with clean markdown formatting. Keep it concise, friendly, and instructive.`,
         contents: [{ role: 'user', parts: [{ text: userMsg }] }]
       });
       const replyText = response.text || "";
       setMessages(prev => [...prev, { role: 'model', text: replyText, isDraft: false }]);
-      speakText(replyText, aiSettings.language);
+      // Pure text response only - NO voice output when AI tutor is off!
     } catch (e) {
       console.error("Text-only response error:", e);
       setMessages(prev => [...prev, { role: 'model', text: "Sorry, I had trouble answering that. Please try again or switch on Live AI Tutor.", isDraft: false }]);
-      setIsSpeaking(false);
     } finally {
       setLoading(false);
+      setIsSpeaking(false);
     }
   };
 
@@ -804,12 +1016,15 @@ Explain clearly and conversationally as if speaking out loud to the student. Kee
 
     if (isLive && liveSessionRef.current) {
       try {
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume().catch(e => console.warn("AudioContext resume error:", e));
+        }
         if (typeof liveSessionRef.current.sendClientContent === 'function') {
           liveSessionRef.current.sendClientContent({
             turns: [{ role: 'user', parts: [{ text: prompt }] }],
             turnComplete: true
           });
-        } else {
+        } else if (typeof liveSessionRef.current.sendRealtimeInput === 'function') {
           liveSessionRef.current.sendRealtimeInput({ text: prompt });
         }
       } catch (err) {
@@ -817,6 +1032,10 @@ Explain clearly and conversationally as if speaking out loud to the student. Kee
       }
     } else if (sessionStarted) {
       setLoading(true);
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+      setIsSpeaking(false);
       try {
         const ai = getGenAI();
         const response = await ai.models.generateContent({
@@ -825,11 +1044,12 @@ Explain clearly and conversationally as if speaking out loud to the student. Kee
         });
         const text = response.text || "";
         setMessages(prev => [...prev, { role: 'model', text, isDraft: false }]);
-        speakText(text, aiSettings.language);
+        // Pure text response only - NO voice output when AI tutor is off!
       } catch (e) {
         console.error("Text-only explanation error:", e);
       } finally {
         setLoading(false);
+        setIsSpeaking(false);
       }
     }
   };
@@ -856,51 +1076,84 @@ Explain clearly and conversationally as if speaking out loud to the student. Kee
     }
   };
 
+  const goToSlide = (idx) => {
+    if (!subtopic?.slides || idx < 0 || idx >= subtopic.slides.length || idx === currentSlideIndex) return;
+    setCurrentSlideIndex(idx);
+    const p = explainCurrentSlide(idx);
+    if (p && typeof p.catch === 'function') {
+      p.catch(err => console.error("Error explaining slide:", err));
+    }
+  };
+
   const handleSend = async (textOverride) => {
     const userMsg = (textOverride !== undefined ? textOverride : input).trim();
-    if (!userMsg || (loading && !isLive)) return;
+    if (!userMsg || isSendingRef.current || (loading && !isLive)) return;
+    isSendingRef.current = true;
     setInput('');
     
-    // Display user text immediately in chat
-    setMessages(prev => [...prev, { role: 'user', text: userMsg, isVoiceDraft: false }]);
-    
-    if (isLive && liveSessionRef.current) {
-      setLoading(true);
-      const promptText = `[Student in ${aiSettings.language} asks]: ${userMsg}. (Please answer speaking directly in ${aiSettings.language})`;
-      try {
-        if (typeof liveSessionRef.current.sendClientContent === 'function') {
-          liveSessionRef.current.sendClientContent({
-            turns: [
-              {
-                role: 'user',
-                parts: [{ text: promptText }]
-              }
-            ],
-            turnComplete: true
-          });
-        } else {
-          liveSessionRef.current.sendRealtimeInput({ text: promptText });
-        }
-      } catch (err) {
-        console.error("Error sending text input to live session:", err);
-        addLog(`Send Live Error: ${err.message}`);
-        await fallbackTextAndSpeech(userMsg);
-      }
-      return;
-    }
+    // Interrupt any previous playback and reset active tutor turn
+    interruptAI();
+    activeTutorTurnIdRef.current = null;
 
-    // When live session is off, generate answer and speak aloud!
-    await fallbackTextAndSpeech(userMsg);
+    // Display user text immediately in chat (with isVoice: false)
+    setMessages(prev => [...prev, { id: `text_${Date.now()}`, role: 'user', text: userMsg, isVoice: false, isVoiceDraft: false }]);
+    
+    try {
+      if (isLive && liveSessionRef.current) {
+        setLoading(true);
+        // Ensure AudioContext is running so the AI Tutor's voice plays out loud
+        if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+          audioContextRef.current.resume().catch(e => console.warn("AudioContext resume error:", e));
+        }
+
+        const promptText = `[Student in ${aiSettings.language} asks via text]: ${userMsg}. (Please answer out loud speaking directly in ${aiSettings.language})`;
+        try {
+          if (typeof liveSessionRef.current.sendClientContent === 'function') {
+            liveSessionRef.current.sendClientContent({
+              turns: [{ role: 'user', parts: [{ text: promptText }] }],
+              turnComplete: true
+            });
+          } else if (typeof liveSessionRef.current.sendRealtimeInput === 'function') {
+            liveSessionRef.current.sendRealtimeInput({ text: promptText });
+          }
+        } catch (err) {
+          console.error("Error sending text input to live session:", err);
+          addLog(`Send Live Error: ${err.message}`);
+          await handleTextOnlyReply(userMsg);
+        }
+        return;
+      }
+
+      // When live session is off, generate text response only (NO voice output!)
+      await handleTextOnlyReply(userMsg);
+    } finally {
+      setTimeout(() => {
+        isSendingRef.current = false;
+      }, 300);
+    }
   };
 
   // Auto-start live session removed - now manual
   useEffect(() => {
-    return () => stopLiveSession();
+    return () => {
+      stopLiveSession();
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
   }, []);
 
   const handleEndSession = async () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
     stopLiveSession();
     setShowEndConfirm(false);
+
+    // Record study attendance session for the current student
+    if (auth.currentUser?.uid) {
+      logStudyMinutes(auth.currentUser.uid, 20).catch(err => console.warn("Could not log tutor session study minutes:", err));
+    }
 
     // If both deselected, go back to course list
     if (!endOptions.notes && !endOptions.assessment) {
@@ -1182,7 +1435,7 @@ Explain clearly and conversationally as if speaking out loud to the student. Kee
           <button
             id="master-mic-controller-btn"
             onClick={handleMicToggle}
-            title={isMicOn ? "Turn Off Microphone" : "Turn On Microphone"}
+            title={isMicOn ? "Turn OFF mic to let AI Tutor respond" : "Turn ON mic to speak to AI Tutor"}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm border ${
               isMicOn 
                 ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100 ring-2 ring-red-300/30' 
@@ -1197,12 +1450,14 @@ Explain clearly and conversationally as if speaking out loud to the student. Kee
                 </span>
                 <Mic size={15} className="text-red-600" />
                 <span>Mic: ON</span>
+                <span className="text-[11px] font-medium text-red-500 hidden sm:inline">(Turn off to respond)</span>
               </>
             ) : (
               <>
                 <span className="h-2.5 w-2.5 rounded-full bg-slate-400"></span>
                 <MicOff size={15} className="text-slate-400" />
                 <span>Mic: OFF</span>
+                <span className="text-[11px] font-medium text-slate-400 hidden sm:inline">(Click to speak)</span>
               </>
             )}
           </button>
@@ -1515,60 +1770,19 @@ Explain clearly and conversationally as if speaking out loud to the student. Kee
           )}
         </AnimatePresence>
 
-        <div className="flex-1 min-w-0 border-r border-slate-800 bg-slate-900 flex flex-col p-6 transition-all duration-300 overflow-hidden">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2 text-blue-400">
-              <Presentation size={20} />
-              <span className="text-sm font-bold uppercase tracking-widest">Subtopic Slides</span>
-            </div>
-            <div className="text-slate-500 text-xs font-bold">
-              {subtopic?.slides?.length > 0 ? `${currentSlideIndex + 1} / ${subtopic.slides.length}` : '0 / 0'}
-            </div>
-          </div>
-
-          <div className="flex-1 flex flex-col justify-center items-center relative min-h-0">
-            <div className="w-full max-w-4xl mx-auto flex-1 flex flex-col justify-center min-h-0">
-              <AnimatePresence mode="wait">
-                {subtopic?.slides?.[currentSlideIndex] ? (
-                  <motion.div 
-                    key={currentSlideIndex}
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 1.05 }}
-                    className="bg-slate-800 rounded-[32px] p-8 md:p-12 text-white border border-slate-700 shadow-2xl flex flex-col justify-center text-center relative overflow-hidden max-h-full w-full"
-                  >
-                    <div className="absolute top-0 left-0 w-full h-1 bg-blue-600" />
-                    <h4 className="text-blue-400 font-bold mb-4 text-xl md:text-2xl uppercase tracking-wider">{subtopic.slides[currentSlideIndex].title}</h4>
-                    <p className="text-slate-200 text-lg md:text-xl leading-relaxed font-light">{subtopic.slides[currentSlideIndex].content}</p>
-                  </motion.div>
-                ) : (
-                  <div className="text-slate-500 italic text-center py-20">
-                    No slides available for this subtopic.
-                  </div>
-                )}
-              </AnimatePresence>
-            </div>
-
-            {/* Navigation Buttons */}
-            {subtopic?.slides?.length > 1 && (
-              <div className="flex justify-center gap-4 mt-6">
-                <button 
-                  onClick={prevSlide}
-                  disabled={currentSlideIndex === 0}
-                  className="p-3 rounded-2xl bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all border border-slate-700"
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                <button 
-                  onClick={nextSlide}
-                  disabled={currentSlideIndex === subtopic.slides.length - 1}
-                  className="p-3 rounded-2xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed transition-all shadow-lg shadow-blue-900/20"
-                >
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-            )}
-          </div>
+        <div className="flex-1 min-w-0 border-r border-slate-800 bg-slate-900 flex flex-col transition-all duration-300 overflow-hidden">
+          <SubtopicSlideViewer 
+            slides={subtopic?.slides || []}
+            currentSlideIndex={currentSlideIndex}
+            onNext={nextSlide}
+            onPrev={prevSlide}
+            onSelectSlide={goToSlide}
+            onExplain={explainCurrentSlide}
+            subtopicTitle={subtopic?.title || topic}
+            topicTitle={topic}
+            courseTitle={courseTitle}
+            isExplaining={loading}
+          />
         </div>
 
         {/* Right Side: Live AI Tutor Chat Box */}

@@ -3,6 +3,7 @@ import { ChevronLeft, BookOpen, Presentation, FileText, CheckCircle, Play, Spark
 import { motion, AnimatePresence } from 'motion/react';
 import TutorChat from './TutorChat';
 import FinalAssessment from './FinalAssessment';
+import { parseSlidePoints } from './SubtopicSlideViewer';
 import { shareCourse } from '../services/sharingService';
 
 export default function CourseView({ course, onBack, onSessionEnd }) {
@@ -263,17 +264,63 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
 
                 {/* Slides for this Subtopic */}
                 <section className="space-y-4">
-                  <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                    <Presentation size={16} />
-                    Contextual Slides
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {selectedSubtopic.slides?.map((slide, idx) => (
-                      <div key={idx} className="bg-slate-900 rounded-3xl p-6 text-white aspect-video flex flex-col justify-center border border-slate-800 shadow-xl">
-                        <h4 className="text-blue-400 font-bold mb-2 text-sm uppercase tracking-wider">{slide.title}</h4>
-                        <p className="text-slate-300 text-sm leading-relaxed">{slide.content}</p>
-                      </div>
-                    ))}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                      <Presentation size={16} className="text-blue-600" />
+                      Subtopic Slide Deck ({selectedSubtopic.slides?.length || 0} Slides)
+                    </h3>
+                    <span className="text-xs text-slate-500 font-medium hidden sm:inline">Interactive presentation view available in AI Tutoring</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {selectedSubtopic.slides?.map((slide, idx) => {
+                      const slidePoints = parseSlidePoints(slide.content);
+                      return (
+                        <div 
+                          key={idx} 
+                          onClick={() => setActiveSession({ topic: selectedSubtopic.title, subtopic: selectedSubtopic })}
+                          className="bg-gradient-to-b from-[#0b1222] to-[#080d19] rounded-3xl p-6 text-white flex flex-col justify-between border border-slate-800/80 shadow-xl hover:border-sky-500/40 hover:shadow-2xl hover:shadow-blue-950/20 transition-all cursor-pointer group relative overflow-hidden"
+                        >
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 to-sky-400 opacity-60 group-hover:opacity-100 transition-opacity" />
+                          
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase tracking-wider bg-blue-500/10 text-sky-400 border border-blue-500/20">
+                                Slide {String(idx + 1).padStart(2, '0')}
+                              </span>
+                              <span className="text-[11px] text-slate-500 flex items-center gap-1 group-hover:text-sky-400 transition-colors">
+                                Open in Live Tutor →
+                              </span>
+                            </div>
+                            
+                            <h4 className="text-white font-bold mb-3 text-base md:text-lg tracking-tight font-sans group-hover:text-sky-300 transition-colors">
+                              {slide.title}
+                            </h4>
+                            
+                            <div className="space-y-2 mb-4">
+                              {slidePoints.slice(0, 3).map((pt, pIdx) => {
+                                const hasColon = pt.includes(':');
+                                const head = hasColon ? pt.split(':')[0].trim() : '';
+                                const body = hasColon ? pt.split(':').slice(1).join(':').trim() : pt;
+                                return (
+                                  <div key={pIdx} className="flex items-start gap-2 text-xs md:text-sm text-slate-300 leading-relaxed">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-sky-400 mt-1.5 shrink-0" />
+                                    <span>
+                                      {head && <strong className="text-slate-100 mr-1">{head}:</strong>}
+                                      {body}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                          
+                          <div className="pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400">
+                            <span className="truncate max-w-[200px]">{selectedSubtopic.title}</span>
+                            <span className="font-semibold text-sky-400">Click to study slide</span>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 </section>
               </motion.div>

@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { generateFinalAssessment } from '../services/gemini';
 import { db, auth } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { logStudyMinutes } from '../services/userService';
 
 export default function FinalAssessment({ course, onBack }) {
   const [loading, setLoading] = useState(true);
@@ -78,6 +79,8 @@ export default function FinalAssessment({ course, onBack }) {
         scores: finalScores,
         createdAt: serverTimestamp()
       });
+      // Automatically credit exam duration to student's attendance log & total study hours
+      await logStudyMinutes(user.uid, 45);
     } catch (error) {
       console.error("Error saving assessment attempt:", error);
     } finally {

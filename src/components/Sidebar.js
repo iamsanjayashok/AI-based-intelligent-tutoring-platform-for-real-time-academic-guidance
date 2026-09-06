@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Book, Layout as DashboardIcon, BarChart2, PlusCircle, Settings, LogOut, Key, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Book, Layout as DashboardIcon, BarChart2, User, PlusCircle, Settings, LogOut, Key, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
@@ -15,6 +15,7 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew }) {
     { id: 'dashboard', label: 'Dashboard', icon: DashboardIcon },
     { id: 'courses', label: 'My Courses', icon: Book },
     { id: 'progress', label: 'Progress', icon: BarChart2 },
+    { id: 'profile', label: 'Profile', icon: User },
   ];
 
   const handleLogout = () => signOut(auth);
@@ -148,12 +149,16 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew }) {
       </AnimatePresence>
 
       <div className="mt-auto p-6 border-t border-slate-100">
-        <div className="flex items-center gap-3 px-4 py-3 mb-2">
-          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-600">
+        <div 
+          onClick={() => setActiveTab('profile')}
+          className="flex items-center gap-3 px-3 py-2.5 mb-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-all border border-transparent hover:border-slate-200"
+          title="View Student Profile"
+        >
+          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold text-xs">
             {auth.currentUser?.displayName?.[0] || 'U'}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-900 truncate">{auth.currentUser?.displayName}</p>
+            <p className="text-sm font-bold text-slate-900 truncate">{auth.currentUser?.displayName || 'Student'}</p>
             <p className="text-xs text-slate-500 truncate">{auth.currentUser?.email}</p>
           </div>
         </div>

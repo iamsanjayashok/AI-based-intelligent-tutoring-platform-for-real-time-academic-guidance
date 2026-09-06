@@ -11,6 +11,7 @@ import CourseCreator from './components/CourseCreator';
 import CourseView from './components/CourseView';
 import PostSession from './components/PostSession';
 import Progress from './components/Progress';
+import Profile from './components/Profile';
 import ProjectDashboard from './components/ProjectDashboard';
 
 const LoadingScreen = () => (
@@ -134,7 +135,12 @@ export default function App() {
             <CourseCreator onComplete={() => setShowCreator(false)} />
           </motion.div>
         ) : activeTab === 'dashboard' ? (
-          <ProjectDashboard startLearning={() => setActiveTab('courses')} />
+          <ProjectDashboard 
+            startLearning={() => setActiveTab('courses')}
+            onCreateCourse={() => setShowCreator(true)}
+            onViewProgress={() => setActiveTab('progress')}
+            onViewProfile={() => setActiveTab('profile')}
+          />
         ) : activeTab === 'courses' ? (
           <Dashboard 
             onSelectCourse={(course) => setSelectedCourse(course)}
@@ -142,10 +148,12 @@ export default function App() {
           />
         ) : activeTab === 'progress' ? (
           <Progress onRetake={handleRetake} />
+        ) : activeTab === 'profile' ? (
+          <Profile />
         ) : (
           <div className="text-center py-20">
-            <h2 className="text-2xl font-bold text-slate-900">Progress Tracking</h2>
-            <p className="text-slate-500">Coming soon: Detailed analytics of your learning journey.</p>
+            <h2 className="text-2xl font-bold text-slate-900">Page Not Found</h2>
+            <p className="text-slate-500">Please select an option from the navigation menu.</p>
           </div>
         )}
       </AnimatePresence>
