@@ -1,10 +1,15 @@
 import React from 'react';
 import Sidebar from './Sidebar';
 
-export default function Layout({ children, activeTab, setActiveTab, onCreateNew }) {
+export default function Layout({ children, activeTab, setActiveTab, onCreateNew, onGoToLanding }) {
   return (
     <div className="flex min-h-screen bg-[#f8fafc]">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onCreateNew={onCreateNew} />
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        onCreateNew={onCreateNew} 
+        onGoToLanding={onGoToLanding}
+      />
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
           {children}

@@ -1,6 +1,6 @@
 {
   "name": "Live AI Learning Companion",
-  "description": "An interactive educational platform that simulates a real classroom tutor with structured sessions, notes, and assessments.",
+  "description": "AI-based intelligent tutoring platform for realtime academic guidance with voice coaching, synchronized slide decks, and rubrics.",
   "requestFramePermissions": [
     "microphone",
     "camera"

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Book, Layout as DashboardIcon, BarChart2, User, PlusCircle, Settings, LogOut, Key, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
+import { Book, Layout as DashboardIcon, BarChart2, User, PlusCircle, Settings, LogOut, Key, Loader2, AlertCircle, CheckCircle, Presentation } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { joinCourseByCode } from '../services/sharingService';
 
-export default function Sidebar({ activeTab, setActiveTab, onCreateNew }) {
+export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLanding }) {
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [courseCode, setCourseCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
@@ -149,6 +149,16 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew }) {
       </AnimatePresence>
 
       <div className="mt-auto p-6 border-t border-slate-100">
+        {onGoToLanding && (
+          <button
+            onClick={onGoToLanding}
+            className="w-full flex items-center gap-3 px-3 py-2.5 mb-3 rounded-xl text-xs font-bold text-slate-700 bg-slate-50 hover:bg-blue-50 hover:text-blue-700 border border-slate-200 hover:border-blue-200 transition-all shadow-2xs"
+            title="View Full Project Presentation & Specifications"
+          >
+            <Presentation size={16} className="text-blue-600" />
+            <span>Project Overview</span>
+          </button>
+        )}
         <div 
           onClick={() => setActiveTab('profile')}
           className="flex items-center gap-3 px-3 py-2.5 mb-2 rounded-xl hover:bg-slate-50 cursor-pointer transition-all border border-transparent hover:border-slate-200"
