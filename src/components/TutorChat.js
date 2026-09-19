@@ -402,7 +402,7 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
       };
 
       rec.onend = () => {
-        if (isMicOnRef.current && isLiveRef.current) {
+        if (isMicOnRef.current) {
           try {
             if (currentUserSpeechRef.current) {
               accumulatedFinalTextRef.current = currentUserSpeechRef.current;
@@ -533,12 +533,19 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
           outputAudioTranscription: {},
           inputAudioTranscription: {},
           systemInstruction: {
-            parts: [{ text: `You are a professional tutor teaching "${topic}" for "${courseTitle}".
-            Explain concepts clearly and encourage the student.
-            Language: ${aiSettings.language}.
-            Tone: ${aiSettings.tone}.
-            Context: ${subtopic?.content || ""}
-            Slides: ${subtopic?.slides?.map((s, i) => `S${i+1}: ${s.title}`).join(', ')}` }]
+            parts: [{ text: `You are a professional, engaging AI tutor teaching "${subtopic?.title || topic}" for "${courseTitle || topic}".
+Explain concepts clearly, conversationally, and encourage the student.
+Language: ${aiSettings.language}.
+Tone: ${aiSettings.tone}.
+
+=== LESSON READING NOTES ===
+${subtopic?.content || ""}
+
+=== COMPLETE PRESENTATION SLIDE DECK (${subtopic?.slides?.length || 0} Slides) ===
+${(subtopic?.slides || []).map((s, i) => `[Slide ${i+1}: ${s.title}]\n${s.content || ''}`).join('\n\n')}
+
+=== TUTOR INSTRUCTIONS ===
+You have full access to all slides and notes above. When asked about any slide (e.g. "explain slide 2", "tell me about slide 1"), refer directly to that slide's content and explain it thoroughly.` }]
           },
         },
         callbacks: {
@@ -713,6 +720,8 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
       }
+      setLoading(false);
+      isSendingRef.current = false;
       stopLiveSession();
     } else {
       addLog("Master Controller: Turning Live AI Tutor ON");
@@ -769,6 +778,8 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
 
   const stopLiveSession = () => {
     interruptAI();
+    setLoading(false);
+    isSendingRef.current = false;
     activeUserDraftIdRef.current = null;
     currentUserSpeechRef.current = '';
     accumulatedFinalTextRef.current = '';
@@ -815,6 +826,8 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
     }
     isPlayingRef.current = false;
     setIsSpeaking(false);
+    setLoading(false);
+    isSendingRef.current = false;
     nextStartTimeRef.current = 0;
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
@@ -857,24 +870,19 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
   };
 
   const handleMicToggle = async () => {
-    if (!isLive) {
-      addLog("Mic clicked while tutor inactive: Starting Live AI Tutor with microphone active...");
-      setIsMicEnabled(true);
-      setIsMicOn(true);
-      isMicOnRef.current = true;
-      await handleToggleLiveTutor();
-      return;
-    }
     const newState = !isMicOn;
     setIsMicOn(newState);
     isMicOnRef.current = newState;
     
     if (newState) {
-      // 1. Immediately silence any active tutor speech
+      // 1. Immediately silence any active tutor speech or synthesis
       interruptAI();
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
       hasStreamedAudioThisTurnRef.current = false;
       activeTutorTurnIdRef.current = null;
-      addLog("Microphone is LIVE (AI tutor silenced). Speak now...");
+      addLog(isLive ? "Microphone is LIVE (Live AI Tutor speaking silenced). Speak now..." : "Microphone active (Voice question mode). Speak now...");
       
       // 2. Prepare single draft bubble for user's voice
       const draftId = `voice_user_${Date.now()}`;
@@ -978,6 +986,39 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
     setIsSpeaking(false);
   };
 
+  const buildTutorSystemInstruction = () => {
+    const slidesList = subtopic?.slides || [];
+    const formattedSlides = slidesList.map((s, idx) => {
+      return `### Slide ${idx + 1}: ${s.title || 'Untitled'}\n${s.content || ''}`;
+    }).join('\n\n');
+
+    const activeSlide = slidesList[currentSlideIndex];
+    const activeSlideContext = activeSlide 
+      ? `Student is currently looking at Slide ${currentSlideIndex + 1} of ${slidesList.length}: "${activeSlide.title}"\nContent:\n${activeSlide.content}`
+      : `No specific slide currently active.`;
+
+    return `You are an expert, engaging AI tutor teaching the module "${subtopic?.title || topic}" from the course "${courseTitle || topic}".
+Target Language: ${aiSettings.language}. (You must respond strictly in ${aiSettings.language}).
+Tone: ${aiSettings.tone}.
+
+=== LESSON READING NOTES & CURRICULUM CONTEXT ===
+${subtopic?.content || "No additional reading notes provided."}
+
+=== PRESENTATION SLIDES DECK (${slidesList.length} Slides Total) ===
+${formattedSlides || "No slides available."}
+
+=== CURRENT ACTIVE SLIDE ON STUDENT'S SCREEN ===
+${activeSlideContext}
+
+=== TUTOR INSTRUCTIONS ===
+- You have complete access to the presentation slides and lecture notes above.
+- When the student asks about any slide (e.g. "explain slide 2", "explain slide 2 again", "summarize slide 1", "what is on the next slide?"), inspect the slide deck above for that slide number and thoroughly explain the concept using the slide's title and contents.
+- If the student asks about "this slide" or "current slide", refer to the CURRENT ACTIVE SLIDE ON STUDENT'S SCREEN (Slide ${currentSlideIndex + 1}).
+- If the student asks you to explain again or elaborate, break it down clearly with intuitive analogies, practical real-world examples, bullet points, and key takeaways.
+- NEVER say "I don't have access to your presentation or slides" or ask the student to upload the slide, because the full slide deck is already provided to you above.
+- Format your response with clear, clean markdown.`;
+  };
+
   const handleTextOnlyReply = async (userMsg) => {
     setLoading(true);
     // Explicitly cancel any speech synthesis so NO voice output plays
@@ -988,21 +1029,75 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
 
     try {
       const ai = getGenAI();
+      const systemInstruction = buildTutorSystemInstruction();
+
+      // Build safe multi-turn conversation history
+      const validHistory = [];
+      let lastRole = null;
+      for (const m of messages) {
+        if (m.isDraft || m.isVoiceDraft || !m.text?.trim()) continue;
+        const role = m.role === 'model' ? 'model' : 'user';
+        if (role === lastRole) {
+          validHistory[validHistory.length - 1].parts[0].text += `\n${m.text}`;
+        } else {
+          validHistory.push({ role, parts: [{ text: m.text }] });
+          lastRole = role;
+        }
+      }
+
+      // Take recent turns (up to 8 turns)
+      const recentHistory = validHistory.slice(-8);
+
+      // Ensure history starts with user and ends with model before appending new userMsg
+      if (recentHistory.length > 0 && recentHistory[0].role === 'model') {
+        recentHistory.shift();
+      }
+      if (recentHistory.length > 0 && recentHistory[recentHistory.length - 1].role === 'user') {
+        recentHistory.pop();
+      }
+
+      const slidesList = subtopic?.slides || [];
+      const formattedDeck = slidesList.map((s, idx) => 
+        `--- Slide ${idx + 1}: ${s.title || 'Untitled'} ---\n${s.content || ''}`
+      ).join('\n\n');
+
+      const activeSlide = slidesList[currentSlideIndex];
+      const activeSlideNote = activeSlide 
+        ? `[Student is currently viewing Slide ${currentSlideIndex + 1} of ${slidesList.length}: "${activeSlide.title}"]\n${activeSlide.content}`
+        : `No specific active slide`;
+
+      const promptWithDeck = `=== FULL PRESENTATION SLIDE DECK (${slidesList.length} Slides Available) ===
+${formattedDeck || "(No slides available in this deck)"}
+
+=== CURRENT ACTIVE SLIDE ===
+${activeSlideNote}
+
+=== LESSON CURRICULUM NOTES ===
+${subtopic?.content || "No additional notes"}
+
+=== STUDENT QUESTION ===
+${userMsg}
+
+(CRITICAL TUTOR DIRECTIVE: You have immediate and direct access to all the slides listed above. Answer the student's question directly using the slide information above. Never say you don't have access to the slides or ask the student to upload them. Respond in ${aiSettings.language}.)`;
+
+      const contents = [
+        ...recentHistory,
+        { role: 'user', parts: [{ text: promptWithDeck }] }
+      ];
+
       const response = await ai.models.generateContent({
         model: "gemini-3.8-flash",
-        systemInstruction: `You are an engaging, supportive AI tutor teaching "${topic}" for "${courseTitle}".
-Language: ${aiSettings.language}.
-Tone: ${aiSettings.tone}.
-Context: ${subtopic?.content || ""}.
-Explain clearly and conversationally with clean markdown formatting. Keep it concise, friendly, and instructive.`,
-        contents: [{ role: 'user', parts: [{ text: userMsg }] }]
+        contents,
+        config: {
+          systemInstruction
+        }
       });
       const replyText = response.text || "";
-      setMessages(prev => [...prev, { role: 'model', text: replyText, isDraft: false }]);
+      setMessages(prev => [...prev, { id: `ai_${Date.now()}`, role: 'model', text: replyText, isDraft: false }]);
       // Pure text response only - NO voice output when AI tutor is off!
     } catch (e) {
       console.error("Text-only response error:", e);
-      setMessages(prev => [...prev, { role: 'model', text: "Sorry, I had trouble answering that. Please try again or switch on Live AI Tutor.", isDraft: false }]);
+      setMessages(prev => [...prev, { id: `ai_err_${Date.now()}`, role: 'model', text: "Sorry, I had trouble answering that. Please try again or switch on Live AI Tutor.", isDraft: false }]);
     } finally {
       setLoading(false);
       setIsSpeaking(false);
@@ -1012,7 +1107,7 @@ Explain clearly and conversationally with clean markdown formatting. Keep it con
   const explainCurrentSlide = async (index) => {
     if (!subtopic?.slides?.[index]) return;
     const slide = subtopic.slides[index];
-    const prompt = `[CRITICAL: RESPOND ONLY IN ${aiSettings.language.toUpperCase()}] Please explain Slide ${index + 1}: ${slide.title}. The content is: ${slide.content}. (Keep your response entirely in ${aiSettings.language})`;
+    const prompt = `[CRITICAL: RESPOND ONLY IN ${aiSettings.language.toUpperCase()}] Please explain Slide ${index + 1}: "${slide.title}". The content is: ${slide.content}. (Keep your response entirely in ${aiSettings.language})`;
 
     if (isLive && liveSessionRef.current) {
       try {
@@ -1030,7 +1125,7 @@ Explain clearly and conversationally with clean markdown formatting. Keep it con
       } catch (err) {
         console.error("Error sending slide explanation request:", err);
       }
-    } else if (sessionStarted) {
+    } else {
       setLoading(true);
       if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.cancel();
@@ -1038,12 +1133,16 @@ Explain clearly and conversationally with clean markdown formatting. Keep it con
       setIsSpeaking(false);
       try {
         const ai = getGenAI();
+        const systemInstruction = buildTutorSystemInstruction();
         const response = await ai.models.generateContent({
           model: "gemini-3.8-flash",
-          contents: prompt
+          contents: [{ role: 'user', parts: [{ text: prompt }] }],
+          config: {
+            systemInstruction
+          }
         });
         const text = response.text || "";
-        setMessages(prev => [...prev, { role: 'model', text, isDraft: false }]);
+        setMessages(prev => [...prev, { id: `ai_slide_${Date.now()}`, role: 'model', text, isDraft: false }]);
         // Pure text response only - NO voice output when AI tutor is off!
       } catch (e) {
         console.error("Text-only explanation error:", e);
@@ -1087,7 +1186,7 @@ Explain clearly and conversationally with clean markdown formatting. Keep it con
 
   const handleSend = async (textOverride) => {
     const userMsg = (textOverride !== undefined ? textOverride : input).trim();
-    if (!userMsg || isSendingRef.current || (loading && !isLive)) return;
+    if (!userMsg || isSendingRef.current) return;
     isSendingRef.current = true;
     setInput('');
     
@@ -1435,7 +1534,7 @@ Explain clearly and conversationally with clean markdown formatting. Keep it con
           <button
             id="master-mic-controller-btn"
             onClick={handleMicToggle}
-            title={isMicOn ? "Turn OFF mic to let AI Tutor respond" : "Turn ON mic to speak to AI Tutor"}
+            title={isMicOn ? (isLive ? "Turn OFF mic to let AI Tutor respond" : "Turn OFF mic to send voice question") : (isLive ? "Turn ON mic to speak to AI Tutor" : "Turn ON mic to speak question")}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm border ${
               isMicOn 
                 ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100 ring-2 ring-red-300/30' 
@@ -1450,7 +1549,9 @@ Explain clearly and conversationally with clean markdown formatting. Keep it con
                 </span>
                 <Mic size={15} className="text-red-600" />
                 <span>Mic: ON</span>
-                <span className="text-[11px] font-medium text-red-500 hidden sm:inline">(Turn off to respond)</span>
+                <span className="text-[11px] font-medium text-red-500 hidden sm:inline">
+                  {isLive ? "(Turn off to respond)" : "(Turn off to send)"}
+                </span>
               </>
             ) : (
               <>
@@ -1792,6 +1893,7 @@ Explain clearly and conversationally with clean markdown formatting. Keep it con
             input={input}
             setInput={setInput}
             onSend={handleSend}
+            onMicToggle={handleMicToggle}
             loading={loading}
             isLive={isLive}
             isMicOn={isMicOn}

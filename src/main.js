@@ -14,9 +14,22 @@ window.onerror = function(message, source, lineno, colno, error) {
   console.error("Global error caught:", { message, source, lineno, colno, error });
 };
 
-window.onunhandledrejection = function(event) {
+window.addEventListener('unhandledrejection', function(event) {
+  const reason = event?.reason;
+  const reasonStr = (reason && (reason.message || reason.stack || (typeof reason === 'string' ? reason : String(reason)))) || '';
+  
+  if (
+    reasonStr.includes('Pending promise was never set') ||
+    reasonStr.includes('auth/cancelled-popup-request') ||
+    reasonStr.includes('auth/popup-blocked') ||
+    reasonStr.includes('auth/popup-closed-by-user')
+  ) {
+    console.warn("Handled Firebase Auth popup rejection safely:", reasonStr);
+    event.preventDefault();
+    return;
+  }
   console.error("Unhandled promise rejection:", event.reason);
-};
+});
 
 console.log("App starting...");
 console.log("GEMINI_API_KEY present:", !!process.env.GEMINI_API_KEY);

@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
-import { GraduationCap, LogIn, Loader2 } from 'lucide-react';
+import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signInAnonymously, signOut } from 'firebase/auth';
+import { GraduationCap, LogIn, Loader2, AlertCircle, ExternalLink, RefreshCw, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import Layout from './components/Layout';
 import { getDoc, doc } from 'firebase/firestore';
@@ -50,12 +50,79 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isGuestLoggingIn, setIsGuestLoggingIn] = useState(false);
+  const [loginError, setLoginError] = useState(null);
+  const isLoggingInRef = useRef(false);
+
   const handleLogin = async () => {
+    if (isLoggingInRef.current) {
+      console.warn("Sign-in already in progress, ignoring extra click.");
+      return;
+    }
+    isLoggingInRef.current = true;
+    setIsLoggingIn(true);
+    setLoginError(null);
+
     const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
     try {
       await signInWithPopup(auth, provider);
     } catch (error) {
-      console.error("Login failed:", error);
+      const code = error?.code || '';
+      const message = error?.message || '';
+
+      if (code === 'auth/popup-closed-by-user') {
+        console.log("Sign-in popup closed by user.");
+      } else if (code === 'auth/cancelled-popup-request') {
+        console.log("Concurrent popup request was cancelled.");
+      } else if (code === 'auth/popup-blocked') {
+        console.warn("Google sign-in popup was blocked by browser:", error);
+        setLoginError({
+          code: 'popup-blocked',
+          title: 'Sign-in popup blocked',
+          message: 'Your browser or iframe preview blocked the sign-in popup. Please click "Allow Popups" or open this app directly in a new tab.'
+        });
+      } else if (message.includes('Pending promise was never set')) {
+        console.warn("Firebase Auth internal assertion caught:", message);
+        setLoginError({
+          code: 'assertion-error',
+          title: 'Sign-in attempt interrupted',
+          message: 'The sign-in popup was closed or interrupted. Please try again.'
+        });
+      } else {
+        console.error("Login failed:", error);
+        setLoginError({
+          code: code || 'unknown',
+          title: 'Sign-in failed',
+          message: message || 'Could not complete Google sign-in. Please try again or continue as guest.'
+        });
+      }
+    } finally {
+      isLoggingInRef.current = false;
+      setIsLoggingIn(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    if (isLoggingInRef.current) return;
+    isLoggingInRef.current = true;
+    setIsGuestLoggingIn(true);
+    setLoginError(null);
+
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.error("Guest login failed:", error);
+      setLoginError({
+        code: error?.code || 'guest-error',
+        title: 'Guest sign-in unavailable',
+        message: 'Guest sign-in is not enabled. Please sign in with Google or open the app in a new tab.'
+      });
+    } finally {
+      isLoggingInRef.current = false;
+      setIsGuestLoggingIn(false);
     }
   };
 
@@ -67,26 +134,109 @@ export default function App() {
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="max-w-md w-full text-center space-y-8"
+          className="max-w-md w-full text-center space-y-7"
         >
           <div className="flex justify-center">
             <div className="w-20 h-20 bg-blue-600 rounded-[24px] flex items-center justify-center text-white shadow-2xl shadow-blue-200">
               <GraduationCap size={40} />
             </div>
           </div>
-          <div className="space-y-4">
-            <h1 className="text-5xl font-serif font-bold text-slate-900 tracking-tight">AI Learning Companion</h1>
-            <p className="text-slate-500 text-lg leading-relaxed">
+          <div className="space-y-3">
+            <h1 className="text-4xl sm:text-5xl font-serif font-bold text-slate-900 tracking-tight">AI Learning Companion</h1>
+            <p className="text-slate-500 text-base sm:text-lg leading-relaxed">
               Your personal AI tutor that turns any material into a structured, interactive classroom experience.
             </p>
           </div>
-          <button
-            onClick={handleLogin}
-            className="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 px-8 py-4 rounded-2xl font-bold hover:bg-slate-50 transition-all shadow-sm group"
-          >
-            <LogIn size={20} className="group-hover:translate-x-1 transition-transform" />
-            Sign in with Google to Start Learning
-          </button>
+
+          {loginError && (
+            <motion.div 
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-left text-amber-900 text-sm space-y-3 shadow-xs"
+            >
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                <div className="space-y-1">
+                  <p className="font-bold text-amber-950 text-sm">{loginError.title}</p>
+                  <p className="text-amber-850 text-xs leading-relaxed">{loginError.message}</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1 pl-7">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLoginError(null);
+                    handleLogin();
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold hover:bg-amber-700 transition-colors flex items-center gap-1.5"
+                >
+                  <RefreshCw size={12} />
+                  Retry Sign In
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.open(window.location.href, '_blank')}
+                  className="px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 text-xs font-semibold hover:bg-amber-100 transition-colors flex items-center gap-1.5"
+                >
+                  <ExternalLink size={12} />
+                  Open in New Tab
+                </button>
+              </div>
+            </motion.div>
+          )}
+
+          <div className="space-y-3 pt-2">
+            <button
+              id="google-signin-btn"
+              onClick={handleLogin}
+              disabled={isLoggingIn || isGuestLoggingIn}
+              className={`w-full flex items-center justify-center gap-3 bg-white border border-slate-200 text-slate-700 px-6 py-4 rounded-2xl font-bold transition-all shadow-sm group ${
+                isLoggingIn || isGuestLoggingIn 
+                  ? 'opacity-70 cursor-not-allowed bg-slate-50' 
+                  : 'hover:bg-slate-50 hover:border-slate-300 active:scale-[0.99]'
+              }`}
+            >
+              {isLoggingIn ? (
+                <>
+                  <Loader2 size={20} className="animate-spin text-blue-600" />
+                  <span>Connecting to Google...</span>
+                </>
+              ) : (
+                <>
+                  <LogIn size={20} className="text-blue-600 group-hover:translate-x-0.5 transition-transform" />
+                  <span>Sign in with Google to Start Learning</span>
+                </>
+              )}
+            </button>
+
+            <div className="relative flex items-center justify-center py-1">
+              <div className="border-t border-slate-200 w-full" />
+              <span className="bg-[#f8fafc] px-3 text-[11px] uppercase tracking-wider text-slate-400 font-semibold absolute">
+                or
+              </span>
+            </div>
+
+            <button
+              id="guest-signin-btn"
+              onClick={handleGuestLogin}
+              disabled={isLoggingIn || isGuestLoggingIn}
+              className={`w-full flex items-center justify-center gap-2 text-slate-600 hover:text-slate-900 text-sm font-semibold py-3 px-4 rounded-xl transition-colors border border-transparent hover:border-slate-200 hover:bg-slate-50 ${
+                isLoggingIn || isGuestLoggingIn ? 'opacity-70 cursor-not-allowed' : ''
+              }`}
+            >
+              {isGuestLoggingIn ? (
+                <>
+                  <Loader2 size={16} className="animate-spin text-slate-500" />
+                  <span>Signing in as guest...</span>
+                </>
+              ) : (
+                <>
+                  <UserCheck size={16} className="text-slate-500" />
+                  <span>Continue as Guest Student</span>
+                </>
+              )}
+            </button>
+          </div>
         </motion.div>
       </div>
     );

@@ -1,13 +1,14 @@
 import React, { useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
-import { Send, Loader2, User, Sparkles, Volume2, Mic, CheckCircle2, Lightbulb } from 'lucide-react';
+import { Send, Loader2, User, Sparkles, Volume2, Mic, MicOff, CheckCircle2, Lightbulb } from 'lucide-react';
 
 export default function LiveTutorChatBox({ 
   messages, 
   input, 
   setInput, 
   onSend, 
+  onMicToggle,
   loading, 
   isLive,
   isMicOn,
@@ -163,7 +164,11 @@ export default function LiveTutorChatBox({
                   </div>
                 )}
 
-                <div className={`prose prose-sm max-w-none ${m.role === 'user' ? 'prose-invert prose-p:text-white' : 'text-slate-800'}`}>
+                <div className={`max-w-none ${
+                  m.role === 'user' 
+                    ? 'text-white prose prose-invert [&_*]:text-white [&_p]:text-white [&_p]:leading-relaxed [&_strong]:text-white [&_strong]:font-bold [&_span]:text-white [&_li]:text-white [&_code]:text-white [&_code]:bg-blue-700/60 [&_code]:px-1 [&_code]:rounded' 
+                    : 'prose prose-sm text-slate-800'
+                }`}>
                   <ReactMarkdown>{m.text || "..."}</ReactMarkdown>
                 </div>
               </div>
@@ -176,7 +181,9 @@ export default function LiveTutorChatBox({
           <div className="flex justify-start">
             <div className="bg-white border border-slate-200 rounded-2xl rounded-tl-xs px-4 py-2.5 shadow-sm flex items-center gap-2.5">
               <Loader2 className="animate-spin text-blue-600" size={15} />
-              <span className="text-xs font-semibold text-slate-500">Live AI Tutor is thinking...</span>
+              <span className="text-xs font-semibold text-slate-500">
+                {isLive ? 'Live AI Tutor is thinking...' : 'AI Tutor is replying...'}
+              </span>
             </div>
           </div>
         )}
@@ -208,23 +215,54 @@ export default function LiveTutorChatBox({
               style={{ minHeight: '38px' }}
             />
             
+            {onMicToggle && (
+              <button 
+                id="tutor-chat-inline-mic-btn"
+                type="button"
+                onClick={onMicToggle}
+                title={isMicOn ? "Turn off mic (send voice message)" : (isLive ? "Speak to Live AI Tutor" : "Speak question (voice-to-text)")}
+                className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-all shadow-sm ${
+                  isMicOn 
+                    ? 'bg-red-500 text-white animate-pulse shadow-red-200 ring-2 ring-red-300' 
+                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800'
+                }`}
+              >
+                {isMicOn ? <Mic size={16} className="text-white" /> : <MicOff size={16} className="text-slate-500" />}
+              </button>
+            )}
+
             <button 
               id="tutor-chat-send-btn"
               type="submit"
-              disabled={!input.trim() || (loading && !isLive)}
+              disabled={!input.trim()}
               title="Send message"
               className="w-9 h-9 rounded-xl bg-blue-600 text-white hover:bg-blue-700 active:bg-blue-800 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center shrink-0 shadow-sm shadow-blue-200"
             >
-              <Send size={16} />
+              {loading && !isLive ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
             </button>
           </div>
 
           <div className="flex items-center justify-between px-1 text-[11px] text-slate-400">
             <span className="flex items-center gap-1">
-              <CheckCircle2 size={11} className="text-emerald-500" />
-              <span>Voice responses enabled</span>
+              {isLive ? (
+                <>
+                  <CheckCircle2 size={11} className="text-emerald-500" />
+                  <span className="text-emerald-600 font-medium">Voice responses enabled</span>
+                </>
+              ) : (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                  <span>Text-only mode (Voice OFF)</span>
+                </>
+              )}
             </span>
-            <span>Shift+Enter for newline</span>
+            <span>
+              {isMicOn ? (
+                <span className="text-red-500 font-bold animate-pulse">● Recording voice... (Click mic to send)</span>
+              ) : (
+                "Shift+Enter for newline"
+              )}
+            </span>
           </div>
         </form>
       </div>

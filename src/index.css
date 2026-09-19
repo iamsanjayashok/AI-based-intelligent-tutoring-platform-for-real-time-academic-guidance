@@ -26,6 +26,19 @@
   @apply text-[#1a1a1a] font-bold;
 }
 
+.prose.prose-invert,
+.prose-invert,
+.prose-invert p,
+.prose-invert span,
+.prose-invert li,
+.prose-invert strong,
+.prose-invert h1,
+.prose-invert h2,
+.prose-invert h3,
+.prose-invert code {
+  color: #ffffff !important;
+}
+
 /* Light Theme classes */
 .glass {
   background-color: rgba(255, 255, 255, 0.7);
