@@ -55,8 +55,8 @@ export default function Dashboard({ onSelectCourse, onCreateNew }) {
     <div className="space-y-8">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-4xl font-serif font-bold text-slate-900">Welcome Back</h2>
-          <p className="text-slate-500 mt-2">Pick up where you left off or start a new journey.</p>
+          <h2 className="text-4xl font-bold text-slate-900 tracking-tight">Welcome Back</h2>
+          <p className="text-slate-500 mt-2 font-medium">Pick up where you left off or start a new journey.</p>
         </div>
       </div>
 
@@ -123,7 +123,7 @@ export default function Dashboard({ onSelectCourse, onCreateNew }) {
                 </div>
               </div>
               
-              <h3 className="text-2xl font-serif font-bold mb-2 group-hover:text-blue-600 transition-colors">
+              <h3 className="text-2xl font-bold mb-2 group-hover:text-blue-600 transition-colors tracking-tight">
                 {course.title}
               </h3>
               <p className="text-slate-500 text-sm line-clamp-2 mb-6">
@@ -158,7 +158,7 @@ export default function Dashboard({ onSelectCourse, onCreateNew }) {
               <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center text-red-500 mb-6 mx-auto">
                 <AlertCircle size={32} />
               </div>
-              <h3 className="text-2xl font-serif font-bold text-center mb-2">Delete Course?</h3>
+              <h3 className="text-2xl font-bold text-center mb-2 tracking-tight">Delete Course?</h3>
               <p className="text-slate-500 text-center mb-8">
                 This will permanently remove the course and all its associated materials.
               </p>

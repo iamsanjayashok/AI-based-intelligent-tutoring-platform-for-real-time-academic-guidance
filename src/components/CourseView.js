@@ -69,7 +69,7 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
               <ChevronLeft size={24} />
             </button>
             <div>
-              <h1 className="text-xl font-serif font-bold text-slate-900">{course.title}</h1>
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">{course.title}</h1>
               <p className="text-xs text-slate-500">Course Overview & Learning Materials</p>
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-[32px] p-8 max-w-sm w-full shadow-2xl border border-blue-50"
             >
-              <h3 className="text-2xl font-serif font-bold text-slate-900 mb-2">Share Course</h3>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2 tracking-tight">Share Course</h3>
               <p className="text-slate-500 text-sm mb-6">Give this code to others so they can copy this course to their dashboard.</p>
               
               <div className="space-y-6">
@@ -204,7 +204,7 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
                 <div className="w-24 h-24 bg-blue-50 rounded-full flex items-center justify-center text-blue-600 mx-auto mb-8">
                   <CheckCircle size={48} />
                 </div>
-                <h2 className="text-4xl font-serif font-bold mb-6 text-slate-900">Final Course Assessment</h2>
+                <h2 className="text-4xl font-bold mb-6 text-slate-900 tracking-tight">Final Course Assessment</h2>
                 <div className="max-w-2xl mx-auto space-y-6 mb-12">
                   <p className="text-slate-500 text-lg leading-relaxed">
                     Ready to validate your journey? This comprehensive assessment is worth <span className="font-bold text-slate-800">100 Marks</span> and covers all units in <span className="italic">"{course.title}"</span>.
@@ -246,7 +246,7 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
                     <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
                       <FileText size={24} />
                     </div>
-                    <h2 className="text-2xl font-serif font-bold text-slate-900">{selectedSubtopic.title}</h2>
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight">{selectedSubtopic.title}</h2>
                   </div>
                   <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed">
                     {selectedSubtopic.content}

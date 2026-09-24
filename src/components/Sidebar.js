@@ -49,7 +49,7 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLa
           <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
             <Book size={20} />
           </div>
-          <span className="font-serif font-bold text-xl text-slate-900">AI Tutor</span>
+          <span className="font-bold text-xl text-slate-900 tracking-tight">AI Tutor</span>
         </div>
 
         <nav className="space-y-1">
@@ -97,7 +97,7 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLa
               exit={{ scale: 0.95, opacity: 0 }}
               className="bg-white rounded-[32px] p-8 max-w-sm w-full shadow-2xl border border-blue-50"
             >
-              <h3 className="text-2xl font-serif font-bold text-slate-900 mb-2">Join a Course</h3>
+              <h3 className="text-2xl font-bold text-slate-900 mb-2 tracking-tight">Join a Course</h3>
               <p className="text-slate-500 text-sm mb-6">Enter the 6-digit access code to copy the course to your dashboard.</p>
               
               <form onSubmit={handleJoinCourse} className="space-y-4">

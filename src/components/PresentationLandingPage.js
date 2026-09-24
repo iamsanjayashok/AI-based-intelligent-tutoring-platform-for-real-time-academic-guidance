@@ -67,6 +67,7 @@ import {
   CircleDot,
   RotateCcw
 } from 'lucide-react';
+import Interactive3DObject from './Interactive3DObject';
 
 /* =========================================================================
    1. INTERACTIVE PARTICLE CONSTELLATION CANVAS (Particle & WebGL-style effect)
@@ -1041,75 +1042,90 @@ export default function PresentationLandingPage({
       {/* =========================================================================
           2. CINEMATIC HERO SECTION (Light Keynote Aesthetic with Gradient Text)
           ========================================================================= */}
-      <section className="relative pt-36 pb-24 md:pt-48 md:pb-36 z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-10">
+      <section className="relative pt-32 pb-20 md:pt-44 md:pb-32 z-10 overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           
-          {/* Eyebrow Hardware Pill with Animated Glow */}
-          <motion.div 
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/80 border border-white shadow-[0_4px_20px_rgba(37,99,235,0.08)] backdrop-blur-xl text-blue-700 text-xs font-bold tracking-wider uppercase"
-          >
-            <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-            <span>Gemini Live Multimodal Voice Classroom</span>
-            <span className="text-slate-300">&bull;</span>
-            <span className="text-slate-500 lowercase">sub-400ms reflex</span>
-          </motion.div>
-
-          {/* Grand Keynote Display Heading with Iridescent Gradient Text */}
-          <motion.div 
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.1 }}
-            className="space-y-6 max-w-5xl mx-auto"
-          >
-            <h1 className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-serif font-bold text-slate-950 tracking-tight leading-[1.08]">
-              AI-based intelligent tutoring platform <br />
-              <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 bg-clip-text text-transparent animate-gradient-flow">
-                for realtime academic guidance.
-              </span>
-            </h1>
-            <p className="text-lg sm:text-2xl text-slate-600 max-w-3xl mx-auto font-normal leading-relaxed">
-              The autonomous learning companion that lectures with you over real-time bi-directional audio, projects synchronized slide decks, and evaluates deep subjective reasoning.
-            </p>
-          </motion.div>
-
-          {/* Primary Action Buttons */}
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, delay: 0.2 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-2"
-          >
-            {user ? (
-              <MagneticButton
-                id="hero-enter-dashboard"
-                onClick={onGoToDashboard}
-                className="w-full sm:w-auto px-9 py-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm tracking-wide shadow-xl shadow-blue-500/25 transition-all"
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
+            {/* Left Column: Keynote Typography and Controls */}
+            <div className="lg:col-span-7 text-center lg:text-left space-y-8">
+              {/* Eyebrow Hardware Pill with Animated Glow */}
+              <motion.div 
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/80 border border-white shadow-[0_4px_20px_rgba(37,99,235,0.08)] backdrop-blur-xl text-blue-700 text-xs font-bold tracking-wider uppercase"
               >
-                <span>Enter Your Learning Dashboard</span>
-                <ArrowRight size={17} />
-              </MagneticButton>
-            ) : (
-              <MagneticButton
-                id="hero-start-free-btn"
-                onClick={onOpenSignIn}
-                className="w-full sm:w-auto px-9 py-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm tracking-wide shadow-xl shadow-blue-500/25 transition-all"
-              >
-                <span>Start Learning Free</span>
-                <ArrowRight size={17} />
-              </MagneticButton>
-            )}
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
+                <span>Gemini Live Multimodal Voice Classroom</span>
+                <span className="text-slate-300">&bull;</span>
+                <span className="text-slate-500 lowercase">sub-400ms reflex</span>
+              </motion.div>
 
-            <a
-              href="#voice-chamber"
-              className="w-full sm:w-auto px-8 py-4 rounded-full bg-white/80 hover:bg-white text-slate-700 hover:text-slate-950 font-bold text-sm tracking-wide border border-slate-200/90 shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-md flex items-center justify-center gap-2.5 backdrop-blur-xl"
+              {/* Grand Keynote Display Heading with Iridescent Gradient Text */}
+              <motion.div 
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.1 }}
+                className="space-y-6"
+              >
+                <h1 className="text-4xl sm:text-5xl md:text-6xl xl:text-7xl font-serif font-bold text-slate-950 tracking-tight leading-[1.08]">
+                  AI-based intelligent tutoring platform <br />
+                  <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 bg-clip-text text-transparent animate-gradient-flow">
+                    for realtime academic guidance.
+                  </span>
+                </h1>
+                <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto lg:mx-0 font-normal leading-relaxed">
+                  The autonomous learning companion that lectures with you over real-time bi-directional audio, projects synchronized slide decks, and evaluates deep subjective reasoning.
+                </p>
+              </motion.div>
+
+              {/* Primary Action Buttons */}
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.7, delay: 0.2 }}
+                className="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2"
+              >
+                {user ? (
+                  <MagneticButton
+                    id="hero-enter-dashboard"
+                    onClick={onGoToDashboard}
+                    className="w-full sm:w-auto px-9 py-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm tracking-wide shadow-xl shadow-blue-500/25 transition-all"
+                  >
+                    <span>Enter Your Learning Dashboard</span>
+                    <ArrowRight size={17} />
+                  </MagneticButton>
+                ) : (
+                  <MagneticButton
+                    id="hero-start-free-btn"
+                    onClick={onOpenSignIn}
+                    className="w-full sm:w-auto px-9 py-4 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm tracking-wide shadow-xl shadow-blue-500/25 transition-all"
+                  >
+                    <span>Start Learning Free</span>
+                    <ArrowRight size={17} />
+                  </MagneticButton>
+                )}
+
+                <a
+                  href="#voice-chamber"
+                  className="w-full sm:w-auto px-8 py-4 rounded-full bg-white/80 hover:bg-white text-slate-700 hover:text-slate-950 font-bold text-sm tracking-wide border border-slate-200/90 shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-md flex items-center justify-center gap-2.5 backdrop-blur-xl"
+                >
+                  <Play size={15} className="fill-blue-600 text-blue-600" />
+                  <span>Explore Interactive Sandbox</span>
+                </a>
+              </motion.div>
+            </div>
+
+            {/* Right Column: 3D Interactive Object (Matching Image 2) */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8, delay: 0.25 }}
+              className="lg:col-span-5 flex items-center justify-center relative w-full"
             >
-              <Play size={15} className="fill-blue-600 text-blue-600" />
-              <span>Explore Interactive Sandbox</span>
-            </a>
-          </motion.div>
+              <Interactive3DObject className="w-full max-w-[480px] h-[340px] sm:h-[420px] lg:h-[480px]" />
+            </motion.div>
+          </div>
 
           {/* Floating Academic Badges (Parallax & 3D Floating Objects) */}
           <div className="pt-8 flex flex-wrap items-center justify-center gap-3">

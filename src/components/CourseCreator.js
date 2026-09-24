@@ -199,7 +199,7 @@ export default function CourseCreator({ onComplete }) {
   return (
     <div className="space-y-8">
       <div className="text-center max-w-2xl mx-auto">
-        <h2 className="text-3xl font-serif font-bold mb-4 text-slate-900">Create a New Course</h2>
+        <h2 className="text-3xl font-bold mb-4 text-slate-900 tracking-tight">Create a New Course</h2>
         <p className="text-slate-500">
           Paste your syllabus, upload lecture notes, or paste a YouTube video link. 
           Our AI will extract the transcript and build a personalized learning path with reading materials and slides.

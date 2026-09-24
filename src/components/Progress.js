@@ -143,7 +143,7 @@ export default function Progress({ onRetake }) {
       <div className="bg-white rounded-[32px] border border-slate-200 overflow-hidden shadow-sm">
         <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div>
-            <h3 className="text-lg font-bold text-slate-900 font-serif italic">Assessment History</h3>
+            <h3 className="text-lg font-bold text-slate-900 tracking-tight">Assessment History</h3>
             <p className="text-sm text-slate-500">Track your performance across all courses.</p>
           </div>
           <div className="text-xs font-mono text-slate-400 uppercase tracking-widest bg-white px-3 py-1.5 rounded-full border border-slate-200">

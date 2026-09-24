@@ -109,7 +109,7 @@ export default function Profile() {
                   className="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-md shadow-slate-200"
                 />
               ) : (
-                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-2xl font-bold font-serif shadow-md shadow-blue-200">
+                <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white text-2xl font-bold shadow-md shadow-blue-200">
                   {userInitial}
                 </div>
               )}
@@ -121,7 +121,7 @@ export default function Profile() {
             {/* Main Identity */}
             <div>
               <div className="flex items-center gap-3">
-                <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                   <span>{profile?.name || currentUser?.displayName || 'Student'}</span>
                   <button
                     onClick={() => setView('edit')}

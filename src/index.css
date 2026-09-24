@@ -3,7 +3,8 @@
 
 @theme {
   --font-sans: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: "Cormorant Garamond", serif;
+  --font-display: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", monospace;
   --animate-spin-slow: spin 3s linear infinite;
 }
@@ -19,7 +20,7 @@
 }
 
 .prose h1, .prose h2, .prose h3 {
-  @apply text-[#1a1a1a] font-serif font-bold;
+  @apply text-[#0f172a] font-sans font-bold tracking-tight;
 }
 
 .prose strong {

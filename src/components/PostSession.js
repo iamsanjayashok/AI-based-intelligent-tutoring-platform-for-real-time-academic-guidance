@@ -111,7 +111,7 @@ export default function PostSession({ topic, subtopic, subtopicTitle, courseTitl
       <div className="min-h-screen flex flex-col items-center justify-center p-12 bg-slate-50">
         <div className="bg-white p-12 rounded-[32px] border border-slate-200 shadow-xl text-center max-w-md w-full">
           <Loader2 className="animate-spin text-blue-600 mb-6 mx-auto" size={48} />
-          <h3 className="text-2xl font-serif font-bold text-slate-900 mb-2">Crafting Your Materials</h3>
+          <h3 className="text-2xl font-bold text-slate-900 mb-2 tracking-tight">Crafting Your Materials</h3>
           <p className="text-slate-500 text-sm">
             AI is analyzing your session on <span className="font-semibold text-slate-700">"{displaySubtopic}"</span> to generate structured study resources.
           </p>
@@ -165,7 +165,7 @@ export default function PostSession({ topic, subtopic, subtopicTitle, courseTitl
                 <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 text-blue-600 rounded-full text-xs font-bold uppercase tracking-wider">
                   <Sparkles size={14} /> Session Completed
                 </div>
-                <h2 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">Post-Session Activities</h2>
+                <h2 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Post-Session Activities</h2>
                 <p className="text-slate-500 max-w-lg mx-auto">
                   Solidify your learning with personalized study notes and interactive assessments generated for <span className="font-semibold text-slate-700">"{displaySubtopic}"</span>.
                 </p>
@@ -177,7 +177,7 @@ export default function PostSession({ topic, subtopic, subtopicTitle, courseTitl
                     <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6">
                       <FileText size={32} />
                     </div>
-                    <h3 className="text-2xl font-serif font-bold mb-3 text-slate-900">Generate Study Notes</h3>
+                    <h3 className="text-2xl font-bold mb-3 text-slate-900 tracking-tight">Generate Study Notes</h3>
                     <p className="text-slate-500 text-sm leading-relaxed mb-8">
                       Get structured notes covering core concepts, definitions, formulas, worked examples, and rapid revision takeaways.
                     </p>
@@ -196,7 +196,7 @@ export default function PostSession({ topic, subtopic, subtopicTitle, courseTitl
                     <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-6">
                       <ClipboardCheck size={32} />
                     </div>
-                    <h3 className="text-2xl font-serif font-bold mb-3 text-slate-900">Take Quick Quiz</h3>
+                    <h3 className="text-2xl font-bold mb-3 text-slate-900 tracking-tight">Take Quick Quiz</h3>
                     <p className="text-slate-500 text-sm leading-relaxed mb-8">
                       Test your understanding with a customized 10-question assessment with instant scoring and explanations.
                     </p>
@@ -222,7 +222,7 @@ export default function PostSession({ topic, subtopic, subtopicTitle, courseTitl
             >
               <div className="flex flex-wrap justify-between items-center gap-4 mb-8 pb-6 border-b border-slate-100">
                 <div>
-                  <h2 className="text-3xl font-serif font-bold text-slate-900">Study Notes</h2>
+                  <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Study Notes</h2>
                   <p className="text-sm text-slate-500">{displaySubtopic}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -260,7 +260,7 @@ export default function PostSession({ topic, subtopic, subtopicTitle, courseTitl
             >
               <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4">
                 <div>
-                  <h2 className="text-3xl font-serif font-bold text-slate-900">Quick Assessment</h2>
+                  <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Quick Assessment</h2>
                   <p className="text-sm text-slate-500">10-Question Knowledge Check for {displaySubtopic}</p>
                 </div>
                 {quizResult && (
@@ -359,7 +359,7 @@ export default function PostSession({ topic, subtopic, subtopicTitle, courseTitl
             >
               <div className="flex justify-between items-center mb-8 pb-4 border-b border-slate-100">
                 <div>
-                  <h2 className="text-3xl font-serif font-bold text-slate-900">Written Assessment</h2>
+                  <h2 className="text-3xl font-bold text-slate-900 tracking-tight">Written Assessment</h2>
                   <p className="text-sm text-slate-500">{displaySubtopic}</p>
                 </div>
                 <button onClick={() => setView('menu')} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
@@ -429,7 +429,7 @@ export default function PostSession({ topic, subtopic, subtopicTitle, courseTitl
               <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-3xl font-bold">{results?.score}%</span>
               </div>
-              <h2 className="text-3xl font-serif font-bold mb-4">Assessment Results</h2>
+              <h2 className="text-3xl font-bold mb-4 tracking-tight">Assessment Results</h2>
               <div className="bg-slate-50 p-6 rounded-2xl text-left mb-8">
                 <h4 className="font-bold text-slate-900 mb-2">Feedback:</h4>
                 <p className="text-slate-600">{results?.feedback}</p>

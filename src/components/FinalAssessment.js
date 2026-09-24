@@ -228,7 +228,7 @@ export default function FinalAssessment({ course, onBack }) {
                 <Sparkles size={24} />
                 <span className="font-bold uppercase tracking-widest text-xs md:text-sm">Comprehensive Final Assessment</span>
               </div>
-              <h2 className="text-3xl md:text-4xl font-serif font-bold mb-6 italic">{course.title}</h2>
+              <h2 className="text-3xl md:text-4xl font-bold mb-6 tracking-tight">{course.title}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-8 text-slate-300">
                 <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/10">
                   <div className="w-2 h-2 rounded-full bg-blue-500 shrink-0" />
@@ -300,7 +300,7 @@ export default function FinalAssessment({ course, onBack }) {
                     }`}>
                       <div className="flex gap-4 mb-8">
                         <span className="w-10 h-10 rounded-xl bg-slate-50 text-slate-400 flex items-center justify-center font-bold text-sm shrink-0 border border-slate-100">{idx + 1}</span>
-                        <h4 className="text-xl md:text-2xl font-serif font-bold text-slate-800 leading-tight">{q.question}</h4>
+                        <h4 className="text-xl md:text-2xl font-bold text-slate-800 leading-tight tracking-tight">{q.question}</h4>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {q.options.map((opt, oIdx) => {
@@ -366,7 +366,7 @@ export default function FinalAssessment({ course, onBack }) {
                     <div key={idx} className="bg-white rounded-[32px] p-6 md:p-10 border border-slate-100 shadow-sm transition-all hover:shadow-md">
                       <div className="flex gap-4 mb-8">
                         <span className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center font-bold text-sm shrink-0 border border-indigo-100">{idx + 1}</span>
-                        <h4 className="text-xl md:text-2xl font-serif font-bold text-slate-800 leading-tight">{q.question}</h4>
+                        <h4 className="text-xl md:text-2xl font-bold text-slate-800 leading-tight tracking-tight">{q.question}</h4>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {q.options.map((opt, oIdx) => {
@@ -438,7 +438,7 @@ export default function FinalAssessment({ course, onBack }) {
                     <div key={idx} className="bg-white rounded-[32px] p-8 md:p-12 border border-slate-100 shadow-sm overflow-hidden">
                       <div className="flex gap-4 mb-8">
                         <span className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold text-xl shrink-0 border border-purple-100">{idx + 1}</span>
-                        <h4 className="text-2xl md:text-3xl font-serif font-bold text-slate-800 leading-tight">{q.question}</h4>
+                        <h4 className="text-2xl md:text-3xl font-bold text-slate-800 leading-tight tracking-tight">{q.question}</h4>
                       </div>
                       
                       <textarea

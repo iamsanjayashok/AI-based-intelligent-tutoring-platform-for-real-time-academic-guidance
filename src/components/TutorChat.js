@@ -1368,7 +1368,7 @@ ${userMsg}
                       <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center">
                         <Presentation size={24} />
                       </div>
-                      <h4 className="text-2xl font-serif font-bold text-slate-900">Study Notes</h4>
+                      <h4 className="text-2xl font-bold text-slate-900 tracking-tight">Study Notes</h4>
                     </div>
                     <div className="prose prose-slate max-w-none prose-h1:text-3xl prose-h2:text-2xl prose-p:text-slate-600 prose-li:text-slate-600">
                       <ReactMarkdown>{generatedNotes}</ReactMarkdown>
@@ -1771,7 +1771,7 @@ ${userMsg}
               <div className="w-24 h-24 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center mb-8">
                 <Mic size={48} />
               </div>
-              <h3 className="text-3xl font-serif font-bold text-white mb-4">Ready to start your session?</h3>
+              <h3 className="text-3xl font-bold text-white mb-4 tracking-tight">Ready to start your session?</h3>
               <p className="text-slate-300 max-w-md mb-10 text-lg">
                 We'll use your microphone for an interactive learning experience with your AI tutor.
               </p>
@@ -1913,7 +1913,7 @@ ${userMsg}
               exit={{ scale: 0.9, opacity: 0 }}
               className="bg-white rounded-[32px] p-8 max-w-md w-full shadow-2xl"
             >
-              <h3 className="text-2xl font-serif font-bold mb-2">Finish Session?</h3>
+              <h3 className="text-2xl font-bold mb-2 tracking-tight">Finish Session?</h3>
               <p className="text-slate-500 mb-6">Select what you'd like to do after the session:</p>
               
               <div className="space-y-3 mb-8">

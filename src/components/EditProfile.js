@@ -114,7 +114,7 @@ export default function EditProfile({ profile, onBack, onSaved }) {
             <ArrowLeft size={20} />
           </button>
           <div>
-            <h1 className="text-2xl font-serif font-bold text-slate-900">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
               Edit Student Details
             </h1>
             <p className="text-xs text-slate-500">

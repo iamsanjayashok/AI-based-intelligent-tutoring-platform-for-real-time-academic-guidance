@@ -745,7 +745,7 @@ export default function ProjectDashboard({
             <BrainCircuit size={14} />
             Learning Science
           </span>
-          <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 tracking-tight">
+          <h2 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
             How Cognitive Scaffolding Accelerates Retention
           </h2>
           <p className="text-sm text-slate-500">
@@ -891,7 +891,7 @@ export default function ProjectDashboard({
               <HelpCircle size={14} />
               Frequently Asked Questions
             </span>
-            <h2 className="text-2xl font-serif font-bold text-slate-900 tracking-tight mt-1">
+            <h2 className="text-2xl font-bold text-slate-900 tracking-tight mt-1">
               Everything You Need to Know
             </h2>
           </div>
@@ -1006,7 +1006,7 @@ export default function ProjectDashboard({
       {/* SECTION: Comprehensive Dashboard Footer */}
       <footer className="pt-6 pb-2 border-t border-slate-200 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-slate-500">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold font-serif shadow-xs">
+          <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
             <GraduationCap size={16} />
           </div>
           <div>

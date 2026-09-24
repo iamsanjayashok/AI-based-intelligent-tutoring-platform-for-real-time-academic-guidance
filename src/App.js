@@ -57,7 +57,7 @@ function SignInModal({
             <GraduationCap size={32} />
           </div>
           <div>
-            <h2 className="text-2xl font-serif font-bold text-slate-950">Sign In to AI Tutor</h2>
+            <h2 className="text-2xl font-bold text-slate-950 tracking-tight">Sign In to AI Tutor</h2>
             <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto mt-1">
               Access your personalized courses, multimodal voice tutor sessions, slide decks, and test records.
             </p>
