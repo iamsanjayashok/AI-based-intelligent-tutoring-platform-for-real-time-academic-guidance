@@ -69,11 +69,31 @@ export default function CourseCreator({ onComplete }) {
         body: JSON.stringify({ url: targetUrl })
       });
 
-      const data = await res.json();
+      const contentType = res.headers.get("content-type") || "";
+      const isJson = contentType.includes("application/json");
+
       if (!res.ok) {
-        throw new Error(data.error || 'Failed to extract transcript from YouTube video.');
+        let errMsg = 'Failed to extract transcript from YouTube video.';
+        try {
+          if (isJson) {
+            const errData = await res.json();
+            errMsg = errData.error || errData.details || errMsg;
+          } else {
+            const raw = await res.text();
+            const clean = raw.replace(/<[^>]*>?/gm, '').trim();
+            errMsg = clean.substring(0, 200) || errMsg;
+          }
+        } catch (e) {}
+        throw new Error(errMsg);
       }
 
+      if (!isJson) {
+        const raw = await res.text();
+        const clean = raw.replace(/<[^>]*>?/gm, '').trim();
+        throw new Error(clean.substring(0, 200) || "Failed to process YouTube response.");
+      }
+
+      const data = await res.json();
       setYoutubeData(data);
       setMaterials(data.transcript);
     } catch (err) {
@@ -109,22 +129,42 @@ export default function CourseCreator({ onComplete }) {
         formData.append('file', file);
         
         let endpoint = '/api/process-doc';
-        if (file.name.endsWith('.pdf')) {
+        if (file.name && file.name.toLowerCase().endsWith('.pdf')) {
           endpoint = '/api/process-pdf';
         }
         
         const res = await fetch(endpoint, { method: 'POST', body: formData });
-        const contentType = res.headers.get("content-type");
-        const isJson = contentType && contentType.includes("application/json");
+        const contentType = res.headers.get("content-type") || "";
+        const isJson = contentType.includes("application/json");
 
         if (!res.ok) {
-          const errorText = await res.text();
-          throw new Error(isJson ? JSON.parse(errorText).error : errorText);
+          let errorText = `Failed to process document (${res.status})`;
+          try {
+            if (isJson) {
+              const errObj = await res.json();
+              errorText = errObj.error || errObj.details || errorText;
+            } else {
+              const rawText = await res.text();
+              const clean = rawText.replace(/<[^>]*>?/gm, '').trim();
+              errorText = clean.substring(0, 200) || errorText;
+            }
+          } catch (e) {
+            errorText = res.statusText || errorText;
+          }
+          throw new Error(errorText);
+        }
+
+        if (!isJson) {
+          const rawText = await res.text();
+          const clean = rawText.replace(/<[^>]*>?/gm, '').trim();
+          throw new Error(clean.substring(0, 200) || "Server returned non-JSON response.");
         }
 
         const docData = await res.json();
         setStatus('Analyzing content with AI...');
-        const fullText = docData.pages.map(p => p.text).join('\n');
+        const fullText = (docData.pages && docData.pages.length > 0)
+          ? docData.pages.map(p => p.text).join('\n')
+          : (docData.title || file.name || "Learning materials");
         courseData = await analyzeMaterials(fullText);
         
         setStatus('Saving your course...');

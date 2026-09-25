@@ -8,10 +8,33 @@ export const analyzeMaterials = async (materials) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ materials })
     });
+
+    const contentType = res.headers.get("content-type") || "";
+    const isJson = contentType.includes("application/json");
+
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: res.statusText }));
-      throw new Error(err.details || err.error || "Failed to analyze materials");
+      let errMsg = `Failed to analyze materials (${res.status})`;
+      try {
+        if (isJson) {
+          const err = await res.json();
+          errMsg = err.details || err.error || errMsg;
+        } else {
+          const raw = await res.text();
+          const clean = raw.replace(/<[^>]*>?/gm, '').trim();
+          errMsg = clean.substring(0, 200) || errMsg;
+        }
+      } catch (e) {
+        errMsg = res.statusText || errMsg;
+      }
+      throw new Error(errMsg);
     }
+
+    if (!isJson) {
+      const raw = await res.text();
+      const clean = raw.replace(/<[^>]*>?/gm, '').trim();
+      throw new Error(clean.substring(0, 200) || "Server returned non-JSON response.");
+    }
+
     return await res.json();
   } catch (error) {
     console.error("Error in analyzeMaterials:", error);

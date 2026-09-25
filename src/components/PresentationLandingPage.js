@@ -70,6 +70,7 @@ import {
 } from 'lucide-react';
 import Interactive3DObject from './Interactive3DObject';
 import RevealText, { RevealTextDemo } from '@/components/ui/reveal-text';
+import InfiniteAppleCardsMarquee from './InfiniteAppleCardsMarquee';
 
 /* =========================================================================
    1. INTERACTIVE PARTICLE CONSTELLATION CANVAS (Particle & WebGL-style effect)
@@ -1446,107 +1447,17 @@ export default function PresentationLandingPage({
               <Interactive3DObject className="w-full max-w-[620px] h-[450px] sm:h-[520px] lg:h-[580px]" />
             </motion.div>
           </div>
-
-          {/* Floating Academic Badges (Parallax & 3D Floating Objects) */}
-          <div className="pt-8 flex flex-wrap items-center justify-center gap-3">
-            {[
-              { label: 'Bloom’s Taxonomy Evaluation', icon: Award, color: 'text-blue-600 bg-blue-50 border-blue-200' },
-              { label: 'Full-Duplex 16kHz PCM', icon: Waves, color: 'text-indigo-600 bg-indigo-50 border-indigo-200' },
-              { label: 'LaTeX & Formula Render', icon: Code, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' },
-              { label: 'Real-time Interruption', icon: Zap, color: 'text-amber-600 bg-amber-50 border-amber-200' }
-            ].map((b, i) => {
-              const Icon = b.icon;
-              return (
-                <motion.div
-                  key={i}
-                  animate={{ y: [0, -6, 0] }}
-                  transition={{ repeat: Infinity, duration: 4 + i, ease: 'easeInOut' }}
-                  className={`inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold border shadow-2xs backdrop-blur-md ${b.color}`}
-                >
-                  <Icon size={13} />
-                  <span>{b.label}</span>
-                </motion.div>
-              );
-            })}
-          </div>
-
-          {/* Light-theme Key Metric Cards (Neumorphic & 3D Card Pop-Up) */}
-          <motion.div 
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-            className="pt-12 max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6"
-          >
-            <div 
-              onClick={() => {
-                document.getElementById('voice-chamber')?.scrollIntoView({ behavior: 'smooth' });
-              }} 
-              className="cursor-pointer group"
-              title="Jump to Card 01: The Acoustic Voice Chamber"
-            >
-              <TiltSpotlightCard className="p-6 text-left group-hover:border-blue-300 group-hover:shadow-md transition-all duration-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">16<span className="text-blue-600">kHz</span></span>
-                  <ArrowRight size={14} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
-                </div>
-                <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Uncompressed Audio</p>
-                <p className="text-xs text-slate-500 mt-1">Raw PCM bi-directional WebSockets</p>
-              </TiltSpotlightCard>
-            </div>
-
-            <div 
-              onClick={() => {
-                document.getElementById('theatre-mode')?.scrollIntoView({ behavior: 'smooth' });
-              }} 
-              className="cursor-pointer group"
-              title="Jump to Card 02: Synchronized Slide Theatre"
-            >
-              <TiltSpotlightCard className="p-6 text-left group-hover:border-indigo-300 group-hover:shadow-md transition-all duration-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">&lt; 380<span className="text-indigo-600">ms</span></span>
-                  <ArrowRight size={14} className="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
-                </div>
-                <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Interruption Reflex</p>
-                <p className="text-xs text-slate-500 mt-1">Stops instantly when you speak</p>
-              </TiltSpotlightCard>
-            </div>
-
-            <div 
-              onClick={() => {
-                document.getElementById('curriculum-architect')?.scrollIntoView({ behavior: 'smooth' });
-              }} 
-              className="cursor-pointer group"
-              title="Jump to Card 03: Curriculum Architect"
-            >
-              <TiltSpotlightCard className="p-6 text-left group-hover:border-purple-300 group-hover:shadow-md transition-all duration-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">10<span className="text-purple-600">+</span></span>
-                  <ArrowRight size={14} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
-                </div>
-                <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Global Dialects</p>
-                <p className="text-xs text-slate-500 mt-1">Multilingual speech coaching</p>
-              </TiltSpotlightCard>
-            </div>
-
-            <div 
-              onClick={() => {
-                document.getElementById('rubric-evaluation')?.scrollIntoView({ behavior: 'smooth' });
-              }} 
-              className="cursor-pointer group"
-              title="Jump to Card 04: Semantic Rubric Evaluator"
-            >
-              <TiltSpotlightCard className="p-6 text-left group-hover:border-cyan-300 group-hover:shadow-md transition-all duration-200">
-                <div className="flex items-center justify-between">
-                  <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">100<span className="text-cyan-600">%</span></span>
-                  <ArrowRight size={14} className="text-slate-300 group-hover:text-cyan-600 group-hover:translate-x-1 transition-all" />
-                </div>
-                <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Semantic Rubrics</p>
-                <p className="text-xs text-slate-500 mt-1">Subjective answer evaluation</p>
-              </TiltSpotlightCard>
-            </div>
-          </motion.div>
-
         </div>
+
+        {/* Apple-Style Infinite Horizontal Sliding Cards Showcase - TRUE FULL SCREEN WIDTH */}
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+          className="pt-12 w-full overflow-hidden"
+        >
+          <InfiniteAppleCardsMarquee />
+        </motion.div>
       </section>
 
       {/* =========================================================================
@@ -1558,10 +1469,6 @@ export default function PresentationLandingPage({
           {/* Section Master Header */}
           <div className="space-y-6">
             <div className="max-w-3xl space-y-4">
-              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-blue-100 text-blue-800 border border-blue-200 shadow-2xs">
-                <StackedCardsDeckIcon className="w-3.5 h-3.5 text-blue-700" />
-                <span>Core Platform Architecture &bull; Layered Stacking Deck</span>
-              </div>
               <RevealText
                 as="h2"
                 size="xl"
@@ -2208,9 +2115,6 @@ export default function PresentationLandingPage({
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
           
           <div className="max-w-3xl space-y-3">
-            <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-blue-100 text-blue-800 border border-blue-200">
-              5 Steps
-            </span>
             <RevealText
               as="h2"
               size="xl"
@@ -2374,9 +2278,6 @@ export default function PresentationLandingPage({
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           
           <div className="text-center space-y-3">
-            <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-blue-100 text-blue-800 border border-blue-200">
-              Clear Answers
-            </span>
             <RevealText
               as="h2"
               size="xl"
