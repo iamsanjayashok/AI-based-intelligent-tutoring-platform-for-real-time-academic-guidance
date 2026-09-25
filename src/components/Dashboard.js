@@ -36,22 +36,55 @@ export default function Dashboard({ onSelectCourse, onCreateNew }) {
       if (document.documentElement) document.documentElement.scrollTop = 0;
       if (document.body) document.body.scrollTop = 0;
     }
-    const user = auth.currentUser;
-    if (!user) return;
 
-    const q = query(
-      collection(db, 'courses'),
-      where('ownerId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
+    let unsubscribeSnapshot = null;
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCourses(docs);
-      setLoading(false);
+    const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        setCourses([]);
+        setLoading(false);
+        return;
+      }
+
+      const q = query(
+        collection(db, 'courses'),
+        where('ownerId', '==', user.uid),
+        orderBy('createdAt', 'desc')
+      );
+
+      unsubscribeSnapshot = onSnapshot(
+        q,
+        (snapshot) => {
+          const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setCourses(docs);
+          setLoading(false);
+        },
+        (error) => {
+          console.warn("Ordered courses snapshot query failed, falling back to simple query:", error);
+          const fallbackQ = query(
+            collection(db, 'courses'),
+            where('ownerId', '==', user.uid)
+          );
+          getDocs(fallbackQ)
+            .then((snap) => {
+              const docs = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              docs.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+              setCourses(docs);
+            })
+            .catch((err) => {
+              console.warn("Fallback courses fetch failed:", err);
+            })
+            .finally(() => {
+              setLoading(false);
+            });
+        }
+      );
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubscribeSnapshot) unsubscribeSnapshot();
+      if (unsubscribeAuth) unsubscribeAuth();
+    };
   }, []);
 
   if (loading) return <div className="flex justify-center p-12"><Clock className="animate-spin text-blue-600" /></div>;

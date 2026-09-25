@@ -18,7 +18,9 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLa
     { id: 'profile', label: 'Profile', icon: User },
   ];
 
-  const handleLogout = () => signOut(auth);
+  const handleLogout = () => {
+    signOut(auth).catch(err => console.warn("Sign-out completed with notice:", err));
+  };
 
   const handleItemClick = (tabId) => {
     setActiveTab(tabId);

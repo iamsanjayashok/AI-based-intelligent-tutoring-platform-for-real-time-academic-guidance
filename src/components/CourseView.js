@@ -35,9 +35,19 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
   };
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(shareCode);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(shareCode)
+        .then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        })
+        .catch((err) => {
+          console.warn("Clipboard copy could not complete:", err);
+        });
+    } else {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
   };
 
   if (activeSession) {

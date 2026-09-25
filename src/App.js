@@ -201,13 +201,20 @@ export default function App() {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-      setLoading(false);
-      if (user && showSignInModal) {
-        setShowSignInModal(false);
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        setUser(user);
+        setLoading(false);
+        if (user && showSignInModal) {
+          setShowSignInModal(false);
+        }
+      },
+      (error) => {
+        console.warn("Auth state observer error handled:", error);
+        setLoading(false);
       }
-    });
+    );
     return () => unsubscribe();
   }, [showSignInModal]);
 

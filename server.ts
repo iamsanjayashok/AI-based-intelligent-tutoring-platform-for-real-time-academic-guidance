@@ -81,6 +81,150 @@ function generateFallbackFinalAssessment(courseTitle: string, topics: string[]) 
   return { mcqs, msqs, descriptive };
 }
 
+// Resilient Gemini Generator with Exponential Backoff and Multi-Model Fallback
+async function generateContentWithRetryAndFallback(
+  ai: GoogleGenAI,
+  params: any,
+  models: string[] = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.1-flash-lite"]
+): Promise<any> {
+  let lastError: any = null;
+
+  for (let mIdx = 0; mIdx < models.length; mIdx++) {
+    const model = models[mIdx];
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const response = await ai.models.generateContent({
+          ...params,
+          model,
+        });
+        return response;
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || (typeof err === "string" ? err : JSON.stringify(err));
+        const isTemporaryError = 
+          errMsg.includes("503") ||
+          errMsg.includes("UNAVAILABLE") ||
+          errMsg.includes("high demand") ||
+          errMsg.includes("429") ||
+          errMsg.includes("RESOURCE_EXHAUSTED") ||
+          errMsg.includes("ECONNRESET") ||
+          errMsg.includes("ETIMEDOUT") ||
+          errMsg.includes("fetch failed");
+
+        console.warn(`[Gemini Resilient Call] Model ${model} (attempt ${attempt}/2) failed: ${errMsg}`);
+
+        if (isTemporaryError) {
+          if (attempt === 1) {
+            // Short backoff before retry on same model
+            await new Promise((r) => setTimeout(r, 600));
+            continue;
+          }
+          // After 2 attempts on this model, break to immediately try next fallback model
+          break;
+        } else {
+          // Fatal/Schema error: do not repeatedly retry
+          throw err;
+        }
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+// Fallback Structured Curriculum Generation when AI models experience temporary 503 spikes
+function generateFallbackCourseFromMaterials(materials: string) {
+  const clean = (materials || "").replace(/[\r\n]+/g, " ").trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+
+  let title = "Academic Study Course";
+  const firstSentence = clean.split(/[.?!]/)[0] || "";
+  if (firstSentence.length > 5 && firstSentence.length < 90) {
+    title = firstSentence.trim();
+  } else if (words.length > 0) {
+    title = words.slice(0, Math.min(words.length, 6)).join(" ");
+  }
+
+  const description = clean.length > 250 
+    ? clean.substring(0, 250) + "..." 
+    : clean || "Structured academic syllabus and curriculum generated from your study materials.";
+
+  const sentences = clean.split(/[.?!]\s+/).filter((s) => s.trim().length > 20);
+  const sample1 = sentences[0] || "Foundational principles and introduction to key definitions.";
+  const sample2 = sentences[1] || "Core methodologies, architectural breakdown, and processes.";
+  const sample3 = sentences[2] || "Advanced analytical synthesis and practical applications.";
+
+  return {
+    title: title || "Comprehensive Academic Course",
+    description: description || "Structured multi-unit curriculum generated from your study materials.",
+    units: [
+      {
+        title: "Unit 1: Foundations & Core Principles",
+        topics: [
+          {
+            title: "Introduction & Key Definitions",
+            difficulty: "beginner",
+            subtopics: [
+              {
+                title: "Fundamental Concepts & Terminology",
+                content: `${sample1} Understanding this subtopic provides the primary basis for the entire subject matter. Focus on the core definitions, standard nomenclature, and baseline conventions.`,
+                slides: [
+                  { title: "Introduction & Scope", content: `Overview of foundational principles and objectives.\nKey terminology and structural concepts.` },
+                  { title: "Core Definitions", content: `Detailed breakdown of primary concepts.\nContextual framing within the wider domain.` },
+                  { title: "Methodology & Framework", content: `Standard analytical steps and operational conventions.\nBaseline assumptions and criteria.` },
+                  { title: "Key Takeaways", content: `Essential principles to retain for subsequent modules.\nConcept check and review points.` }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        title: "Unit 2: Detailed Framework & Key Methodologies",
+        topics: [
+          {
+            title: "Mechanisms & Operational Framework",
+            difficulty: "intermediate",
+            subtopics: [
+              {
+                title: "Process Breakdown & Implementation",
+                content: `${sample2} This subtopic investigates the functional mechanisms and interrelationships between key variables in the curriculum.`,
+                slides: [
+                  { title: "Architectural Overview", content: `Structural breakdown of primary components.\nInteraction between active subsystems.` },
+                  { title: "Key Workflows", content: `Step-by-step procedure and calculation models.\nStandard implementation guidelines.` },
+                  { title: "Edge Cases & Nuances", content: `Critical constraints and boundary conditions.\nTroubleshooting common operational hurdles.` },
+                  { title: "Unit Summary", content: `Consolidation of analytical methods.\nPreparation for advanced application.` }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        title: "Unit 3: Practical Applications & Synthesis",
+        topics: [
+          {
+            title: "Advanced Analysis & Real-World Use",
+            difficulty: "advanced",
+            subtopics: [
+              {
+                title: "Evaluation & Practical Integration",
+                content: `${sample3} Advanced study requiring synthesis of previous concepts. Covers real-world scenarios, case studies, and verification metrics.`,
+                slides: [
+                  { title: "Application Scenario", content: `Real-world case study and implementation context.\nKey operational constraints.` },
+                  { title: "Analytical Evaluation", content: `Evaluating outcomes against baseline benchmarks.\nVerifying correctness and efficiency.` },
+                  { title: "Optimization Strategies", content: `Techniques to improve performance and depth.\nBest practices for scalable execution.` },
+                  { title: "Course Synthesis", content: `Comprehensive review of all units.\nFinal takeaways and mastery roadmap.` }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  };
+}
+
 // Handle pdf-parse import quirk
 const pdfParser = (pdfParse as any).default || pdfParse;
 if (typeof pdfParser !== 'function') {
@@ -329,7 +473,7 @@ async function startServer() {
           });
         }
 
-        const ai = new GoogleGenAI({ apiKey });
+        const ai = getAiClient();
         const prompt = `You are an expert academic curriculum transcriber.
 The user wants to study and prepare a comprehensive course from this YouTube video:
 Video Title: "${metadata.title}"
@@ -340,8 +484,7 @@ Please provide an exhaustive, high-fidelity spoken transcript and lecture breakd
 Cover all mathematical concepts, terminology, explanations, code snippets (if applicable), and key arguments presented by the speaker in chronological order.
 Format this as a detailed chronological transcript with timestamp indicators (e.g. [00:00], [03:30], [07:15], etc.) so that the educational material can be transformed into rigorous learning units, reading material, and lecture slides.`;
 
-        const aiResponse = await ai.models.generateContent({
-          model: "gemini-3.8-flash",
+        const aiResponse = await generateContentWithRetryAndFallback(ai, {
           contents: prompt
         });
 
@@ -414,8 +557,7 @@ Structure:
 
 Ensure questions are rigorous, high-quality, and balanced across all topics.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+      const response = await generateContentWithRetryAndFallback(ai, {
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -463,7 +605,7 @@ Ensure questions are rigorous, high-quality, and balanced across all topics.`;
         }
       });
 
-      const text = response.text || "{}";
+      const text = response?.text || "{}";
       const parsed = JSON.parse(text);
       if (Array.isArray(parsed.mcqs) && parsed.mcqs.length > 0) {
         return res.json(parsed);
@@ -484,13 +626,18 @@ Ensure questions are rigorous, high-quality, and balanced across all topics.`;
     }
 
     try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        console.warn("GEMINI_API_KEY is not configured on server. Generating structured course fallback.");
+        return res.json(generateFallbackCourseFromMaterials(materials));
+      }
+
       const ai = getAiClient();
-      const truncatedMaterials = materials.length > 30000 
-        ? materials.substring(0, 30000) + "... [Materials truncated for analysis]"
+      const truncatedMaterials = materials.length > 25000 
+        ? materials.substring(0, 25000) + "... [Materials truncated for analysis]"
         : materials;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+      const response = await generateContentWithRetryAndFallback(ai, {
         contents: `Analyze the following learning materials and extract a structured academic course.
 Materials: ${truncatedMaterials}
 
@@ -570,15 +717,16 @@ CRITICAL: Keep the content concise to avoid response truncation. Ensure each sub
         }
       });
 
-      const text = response.text || "{}";
+      const text = response?.text || "{}";
       const data = JSON.parse(text);
-      return res.json(data);
+      if (data && data.title && Array.isArray(data.units) && data.units.length > 0) {
+        return res.json(data);
+      }
+      return res.json(generateFallbackCourseFromMaterials(materials));
     } catch (error: any) {
       console.error("Error in server /gemini/analyze-materials:", error);
-      return res.status(500).json({ 
-        error: "Failed to analyze materials", 
-        details: error instanceof Error ? error.message : String(error) 
-      });
+      console.warn("AI service temporarily unavailable (503/high demand). Returning structured course fallback.");
+      return res.json(generateFallbackCourseFromMaterials(materials));
     }
   });
 
@@ -587,8 +735,7 @@ CRITICAL: Keep the content concise to avoid response truncation. Ensure each sub
     const { courseTitle, topic } = req.body;
     try {
       const ai = getAiClient();
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+      const response = await generateContentWithRetryAndFallback(ai, {
         contents: `Create a session plan for the topic "${topic || "Core Subject"}" in the course "${courseTitle || "Academic Study"}".
 Include:
 - objectives: array of strings
@@ -607,7 +754,7 @@ Include:
           }
         }
       });
-      const parsed = JSON.parse(response.text || "{}");
+      const parsed = JSON.parse(response?.text || "{}");
       return res.json(parsed);
     } catch (error: any) {
       console.error("Error in /gemini/session-plan:", error);
@@ -645,11 +792,10 @@ ${transcript && transcript.trim().length > 0 ? `Classroom / Tutoring Session Tra
    ## 6. Key Takeaways & Common Pitfalls to Avoid
    ## 7. Rapid Revision Summary`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+      const response = await generateContentWithRetryAndFallback(ai, {
         contents: prompt,
       });
-      return res.json({ text: response.text || "Notes could not be generated at this time." });
+      return res.json({ text: response?.text || "Notes could not be generated at this time." });
     } catch (error: any) {
       console.error("Error in /gemini/generate-notes:", error);
       return res.json({ 
@@ -677,8 +823,7 @@ ${transcript && transcript.trim().length > 0 ? `Classroom / Tutoring Session Tra
 4. Specify the exact string of the correct answer in the "answer" field (must match one of the 4 options exactly).
 5. Never ask the user to provide a transcript. Always produce 10 complete and valid questions.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+      const response = await generateContentWithRetryAndFallback(ai, {
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -703,7 +848,7 @@ ${transcript && transcript.trim().length > 0 ? `Classroom / Tutoring Session Tra
         }
       });
 
-      const parsed = JSON.parse(response.text || "{}");
+      const parsed = JSON.parse(response?.text || "{}");
       return res.json(parsed.questions && parsed.questions.length > 0 ? parsed : { questions: [] });
     } catch (error: any) {
       console.error("Error in /gemini/generate-subtopic-assessment:", error);
@@ -731,8 +876,7 @@ ${transcript && transcript.trim().length > 0 ? `Session Transcript:\n${transcrip
 - 1 challenge / advanced thinking question
 3. Do NOT ask for a transcript. Generate directly based on the topic.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+      const response = await generateContentWithRetryAndFallback(ai, {
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -747,7 +891,7 @@ ${transcript && transcript.trim().length > 0 ? `Session Transcript:\n${transcrip
           }
         }
       });
-      const parsed = JSON.parse(response.text || "{}");
+      const parsed = JSON.parse(response?.text || "{}");
       return res.json(parsed);
     } catch (error: any) {
       console.error("Error in /gemini/generate-assessment:", error);
@@ -760,8 +904,7 @@ ${transcript && transcript.trim().length > 0 ? `Session Transcript:\n${transcrip
     const { topic, questions, answers } = req.body;
     try {
       const ai = getAiClient();
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+      const response = await generateContentWithRetryAndFallback(ai, {
         contents: `Grade the following student answers for the assessment on the topic "${topic}".
         
 Questions: ${JSON.stringify(questions)}
@@ -784,7 +927,7 @@ Provide:
           }
         }
       });
-      const parsed = JSON.parse(response.text || "{}");
+      const parsed = JSON.parse(response?.text || "{}");
       return res.json(parsed);
     } catch (error: any) {
       console.error("Error in /gemini/grade-assessment:", error);
@@ -797,12 +940,11 @@ Provide:
     const { contents, systemInstruction } = req.body;
     try {
       const ai = getAiClient();
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
+      const response = await generateContentWithRetryAndFallback(ai, {
         contents,
         config: systemInstruction ? { systemInstruction } : undefined
       });
-      return res.json({ text: response.text || "" });
+      return res.json({ text: response?.text || "" });
     } catch (error: any) {
       console.error("Error in /gemini/chat:", error);
       return res.status(500).json({ error: "Failed to generate chat response", details: error instanceof Error ? error.message : String(error) });

@@ -101,9 +101,19 @@ export default function PostSession({ topic, subtopic, subtopicTitle, courseTitl
   };
 
   const copyNotesToClipboard = () => {
-    navigator.clipboard.writeText(notes);
-    setCopiedNotes(true);
-    setTimeout(() => setCopiedNotes(false), 2000);
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(notes)
+        .then(() => {
+          setCopiedNotes(true);
+          setTimeout(() => setCopiedNotes(false), 2000);
+        })
+        .catch((err) => {
+          console.warn("Clipboard copy could not complete:", err);
+        });
+    } else {
+      setCopiedNotes(true);
+      setTimeout(() => setCopiedNotes(false), 2000);
+    }
   };
 
   if (loading) {

@@ -457,7 +457,11 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
       }
 
       if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
+        try {
+          await audioContextRef.current.resume();
+        } catch (e) {
+          console.warn("AudioContext resume postponed until user interaction:", e);
+        }
       }
 
       // 2. Setup Mic Input if stream provided
@@ -746,7 +750,11 @@ You have full access to all slides and notes above. When asked about any slide (
       }
       
       if (audioContextRef.current.state === 'suspended') {
-        await audioContextRef.current.resume();
+        try {
+          await audioContextRef.current.resume();
+        } catch (e) {
+          console.warn("AudioContext resume postponed until user interaction:", e);
+        }
       }
 
       isPlayingRef.current = true;

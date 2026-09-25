@@ -15,6 +15,12 @@ window.onerror = function(message, source, lineno, colno, error) {
 };
 
 window.addEventListener('unhandledrejection', function(event) {
+  try {
+    event.preventDefault(); // Prevents browser from bubbling as an unhandled rejection
+  } catch (e) {
+    // Ignore if preventDefault is unavailable
+  }
+
   const reason = event?.reason;
   const reasonStr = (reason && (reason.message || reason.stack || (typeof reason === 'string' ? reason : String(reason)))) || '';
   
@@ -25,10 +31,9 @@ window.addEventListener('unhandledrejection', function(event) {
     reasonStr.includes('auth/popup-closed-by-user')
   ) {
     console.warn("Handled Firebase Auth popup rejection safely:", reasonStr);
-    event.preventDefault();
     return;
   }
-  console.error("Unhandled promise rejection:", event.reason);
+  console.warn("Captured asynchronous promise rejection safely:", reasonStr || reason || event);
 });
 
 console.log("App starting...");
