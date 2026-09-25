@@ -26,6 +26,7 @@ export default function FinalAssessment({ course, onBack }) {
 
   // Timer State: 2 hours in seconds
   const [timeLeft, setTimeLeft] = useState(7200);
+  const [errorMsg, setErrorMsg] = useState(null);
 
   const calculateScore = () => {
     let mcqScore = 0;
@@ -129,13 +130,19 @@ export default function FinalAssessment({ course, onBack }) {
       }
 
       setLoading(true);
+      setErrorMsg(null);
       try {
         const topics = course.units?.flatMap(u => u.topics.map(t => t.title)) || [];
         const data = await generateFinalAssessment(course.title, topics);
-        setAssessment(data);
-        localStorage.setItem(cacheKey, JSON.stringify(data));
+        if (data && Array.isArray(data.mcqs) && data.mcqs.length > 0) {
+          setAssessment(data);
+          localStorage.setItem(cacheKey, JSON.stringify(data));
+        } else {
+          throw new Error("Unable to load exam questions.");
+        }
       } catch (error) {
         console.error("Error loading assessment:", error);
+        setErrorMsg(error?.message || "Failed to load final assessment questions.");
       } finally {
         setLoading(false);
       }
@@ -172,7 +179,32 @@ export default function FinalAssessment({ course, onBack }) {
     );
   }
 
-  if (!assessment) return null;
+  if (!assessment) {
+    return (
+      <div className="fixed inset-0 bg-white z-[80] flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <div className="w-16 h-16 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-2">
+          <HelpCircle size={32} />
+        </div>
+        <h3 className="text-xl font-bold text-slate-800">Exam Questions Notice</h3>
+        <p className="text-slate-500 max-w-md">{errorMsg || "Unable to generate final assessment questions at this time."}</p>
+        <div className="flex items-center gap-3 mt-4">
+          <button onClick={onBack} className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-medium hover:bg-slate-50 transition-colors">
+            Go Back
+          </button>
+          <button 
+            onClick={() => {
+              const cacheKey = `final_assessment_${course.title}`;
+              localStorage.removeItem(cacheKey);
+              window.location.reload();
+            }} 
+            className="px-5 py-2.5 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
+          >
+            Retry Exam Setup
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-slate-50 z-[80] flex flex-col overflow-hidden">

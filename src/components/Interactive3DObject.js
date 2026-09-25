@@ -1,11 +1,27 @@
 import React, { useRef, useEffect, useState } from 'react';
 import * as THREE from 'three';
-import { Rotate3d } from 'lucide-react';
+
+// Cinquefoil Star Curve (5-pointed star knot with exact 72-deg rotational symmetry)
+class CinquefoilStarCurve extends THREE.Curve {
+  constructor(scale = 0.92) {
+    super();
+    this.scale = scale;
+  }
+  getPoint(t, optionalTarget = new THREE.Vector3()) {
+    const phi = t * Math.PI * 2;
+    // 5-pointed star loop with 5 distinct outer star petals and open center
+    const R = 2.4;
+    const r = 1.15;
+    const x = (R + r * Math.cos(5 * phi)) * Math.cos(2 * phi);
+    const y = (R + r * Math.cos(5 * phi)) * Math.sin(2 * phi);
+    const z = -r * Math.sin(5 * phi) * 0.95;
+    return optionalTarget.set(x, y, z).multiplyScalar(this.scale);
+  }
+}
 
 export default function Interactive3DObject({ className = '' }) {
   const containerRef = useRef(null);
-  const [hasInteracted, setHasInteracted] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isInteracting, setIsInteracting] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -15,12 +31,35 @@ export default function Interactive3DObject({ className = '' }) {
     const scene = new THREE.Scene();
 
     const camera = new THREE.PerspectiveCamera(
-      42,
-      container.clientWidth / container.clientHeight,
+      38,
+      container.clientWidth / (container.clientHeight || 1),
       0.1,
       1000
     );
-    camera.position.set(0, 0, 11);
+
+    // Dynamic camera distance tailored for 1.5x larger star with generous framing
+    const fitCameraToViewport = () => {
+      const width = container.clientWidth || 400;
+      const height = container.clientHeight || 400;
+      const aspect = width / height;
+      camera.aspect = aspect;
+
+      const fovRad = (camera.fov * Math.PI) / 180;
+      const tanHalfVFov = Math.tan(fovRad / 2);
+      const tanHalfHFov = aspect * tanHalfVFov;
+
+      // 1.5x scale bounding radius (3.82 * 1.5) with clean 8% viewport padding
+      const safeRadius = 3.82 * 1.5 * 1.08;
+      const distV = safeRadius / tanHalfVFov;
+      const distH = safeRadius / (tanHalfHFov || 0.01);
+      const targetDist = Math.max(distV, distH, 16.0);
+
+      camera.position.set(0, 0, targetDist);
+      camera.lookAt(0, 0, 0);
+      camera.updateProjectionMatrix();
+    };
+
+    fitCameraToViewport();
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -33,44 +72,43 @@ export default function Interactive3DObject({ className = '' }) {
     renderer.toneMappingExposure = 1.35;
     container.appendChild(renderer.domElement);
 
-    // --- Procedural Studio Reflection Cube Map for Metallic Highlights ---
+    // --- Procedural High-Gloss Studio Reflection Environment Map ---
     const pmremGenerator = new THREE.PMREMGenerator(renderer);
     pmremGenerator.compileEquirectangularShader();
 
-    // Create a subtle high-contrast studio environment canvas
     const envCanvas = document.createElement('canvas');
     envCanvas.width = 512;
     envCanvas.height = 256;
     const ctx = envCanvas.getContext('2d');
     if (ctx) {
-      // Dark gradient backdrop
+      // Dark space backdrop
       const bgGrad = ctx.createLinearGradient(0, 0, 0, 256);
       bgGrad.addColorStop(0, '#020617');
-      bgGrad.addColorStop(0.5, '#0f172a');
+      bgGrad.addColorStop(0.5, '#0b1120');
       bgGrad.addColorStop(1, '#020617');
       ctx.fillStyle = bgGrad;
       ctx.fillRect(0, 0, 512, 256);
 
       // Studio overhead light bank
-      const lightGrad1 = ctx.createLinearGradient(0, 30, 0, 110);
-      lightGrad1.addColorStop(0, 'rgba(255, 255, 255, 0.95)');
+      const lightGrad1 = ctx.createLinearGradient(0, 25, 0, 105);
+      lightGrad1.addColorStop(0, 'rgba(255, 255, 255, 0.98)');
       lightGrad1.addColorStop(1, 'rgba(255, 255, 255, 0)');
       ctx.fillStyle = lightGrad1;
-      ctx.fillRect(60, 20, 220, 80);
+      ctx.fillRect(50, 15, 240, 90);
 
-      // Side cool blue accent reflector
-      const lightGrad2 = ctx.createRadialGradient(420, 128, 10, 420, 128, 130);
-      lightGrad2.addColorStop(0, 'rgba(56, 189, 248, 0.85)');
+      // Electric blue rim reflector
+      const lightGrad2 = ctx.createRadialGradient(420, 128, 10, 420, 128, 140);
+      lightGrad2.addColorStop(0, 'rgba(56, 189, 248, 0.9)');
       lightGrad2.addColorStop(1, 'rgba(56, 189, 248, 0)');
       ctx.fillStyle = lightGrad2;
-      ctx.fillRect(320, 30, 180, 190);
+      ctx.fillRect(310, 20, 190, 200);
 
-      // Violet rim fill
-      const lightGrad3 = ctx.createRadialGradient(90, 180, 10, 90, 180, 120);
-      lightGrad3.addColorStop(0, 'rgba(129, 140, 248, 0.7)');
+      // Indigo edge fill
+      const lightGrad3 = ctx.createRadialGradient(90, 180, 10, 90, 180, 130);
+      lightGrad3.addColorStop(0, 'rgba(129, 140, 248, 0.8)');
       lightGrad3.addColorStop(1, 'rgba(129, 140, 248, 0)');
       ctx.fillStyle = lightGrad3;
-      ctx.fillRect(10, 110, 160, 140);
+      ctx.fillRect(10, 100, 170, 150);
     }
 
     const envTexture = new THREE.CanvasTexture(envCanvas);
@@ -80,115 +118,77 @@ export default function Interactive3DObject({ className = '' }) {
     pmremGenerator.dispose();
     envTexture.dispose();
 
-    // --- 5-Petal Star Torus Knot Geometry (Matching Image 2) ---
-    // p = 5, q = 2 creates the iconic 5-lobed cinquefoil star knot
-    const geometry = new THREE.TorusKnotGeometry(2.7, 0.82, 280, 48, 5, 2);
+    // --- Geometry: 5-Point Star Loop Scaled 1.5x with Thick Gloss Metallic Profile ---
+    const curve = new CinquefoilStarCurve(0.92);
+    const geometry = new THREE.TubeGeometry(curve, 360, 0.44, 40, true);
 
-    // --- Obsidian Chrome Metallic Material with Gloss Clearcoat ---
+    // --- Material: Gloss Obsidian Chrome ---
     const material = new THREE.MeshPhysicalMaterial({
-      color: new THREE.Color(0x0a0f1d), // Deep obsidian
+      color: new THREE.Color(0x0b1329), // Rich obsidian midnight
       emissive: new THREE.Color(0x030712),
-      roughness: 0.12, // Crisp glossy reflections
-      metalness: 0.92, // High-polish metallic look
-      clearcoat: 1.0, // Protective lacquer / automotive clearcoat
-      clearcoatRoughness: 0.08,
+      roughness: 0.11, // High-gloss specular reflections
+      metalness: 0.95, // Deep metallic polish
+      clearcoat: 1.0, // Lacquered glass finish
+      clearcoatRoughness: 0.05,
       reflectivity: 0.98,
     });
 
-    const torusMesh = new THREE.Mesh(geometry, material);
-    scene.add(torusMesh);
+    const starMesh = new THREE.Mesh(geometry, material);
+    // Increase size 1.5x
+    starMesh.scale.set(1.5, 1.5, 1.5);
+    scene.add(starMesh);
 
-    // Initial slight dynamic orientation
-    torusMesh.rotation.x = 0.45;
-    torusMesh.rotation.y = 0.65;
+    // By default: Star faces directly front towards user (XY plane)
+    starMesh.rotation.x = 0;
+    starMesh.rotation.y = 0;
+    starMesh.rotation.z = 0;
 
     // --- Studio Lighting Setup ---
-    // 1. Ambient soft light
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     scene.add(ambientLight);
 
-    // 2. Main Key Light (Crisp White Highlights)
-    const keyLight = new THREE.DirectionalLight(0xffffff, 3.2);
+    const keyLight = new THREE.DirectionalLight(0xffffff, 3.8);
     keyLight.position.set(5, 7, 7);
     scene.add(keyLight);
 
-    // 3. Electric Blue Rim Light (Right & Behind)
-    const blueRimLight = new THREE.DirectionalLight(0x38bdf8, 4.5);
+    const blueRimLight = new THREE.DirectionalLight(0x38bdf8, 5.5);
     blueRimLight.position.set(8, -2, -4);
     scene.add(blueRimLight);
 
-    // 4. Soft Indigo Fill Light (Left & Front)
-    const indigoFillLight = new THREE.DirectionalLight(0x818cf8, 2.8);
+    const indigoFillLight = new THREE.DirectionalLight(0x818cf8, 3.5);
     indigoFillLight.position.set(-6, 3, 5);
     scene.add(indigoFillLight);
 
-    // 5. Bottom Upward Light (Accentuates bottom curves)
-    const bottomLight = new THREE.DirectionalLight(0x60a5fa, 1.6);
+    const bottomLight = new THREE.DirectionalLight(0x60a5fa, 2.2);
     bottomLight.position.set(0, -6, 2);
     scene.add(bottomLight);
 
-    // --- Interaction & Motion State ---
-    let mouseX = 0;
-    let mouseY = 0;
-    let targetRotX = torusMesh.rotation.x;
-    let targetRotY = torusMesh.rotation.y;
-    let isUserDragging = false;
-    let previousPointerX = 0;
-    let previousPointerY = 0;
-    let velocityX = 0;
-    let velocityY = 0;
-    let clock = new THREE.Clock();
+    // --- 360 Rotation on Interaction State ---
+    let isSpinning360 = false;
+    let spinStartTime = 0;
+    const spinDuration = 1200; // 1.2s fluid 360 spin
+    let spinStartRotY = 0;
 
-    // Mouse tracking for hover tilt
-    const handlePointerMove = (e) => {
-      const rect = container.getBoundingClientRect();
-      const normX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-      const normY = -(((e.clientY - rect.top) / rect.height) * 2 - 1);
-
-      if (isUserDragging) {
-        const deltaX = e.clientX - previousPointerX;
-        const deltaY = e.clientY - previousPointerY;
-        previousPointerX = e.clientX;
-        previousPointerY = e.clientY;
-
-        velocityX = deltaX * 0.009;
-        velocityY = deltaY * 0.009;
-
-        targetRotY += velocityX;
-        targetRotX += velocityY;
-      } else {
-        mouseX = normX;
-        mouseY = normY;
-      }
+    const trigger360Spin = () => {
+      isSpinning360 = true;
+      spinStartTime = performance.now();
+      spinStartRotY = starMesh.rotation.y;
     };
 
-    const handlePointerDown = (e) => {
-      isUserDragging = true;
-      setIsDragging(true);
-      setHasInteracted(true);
-      previousPointerX = e.clientX;
-      previousPointerY = e.clientY;
-      velocityX = 0;
-      velocityY = 0;
+    let clock = new THREE.Clock();
+
+    // Trigger 360 rotation whenever user interacts
+    const handlePointerDown = () => {
+      setIsInteracting(true);
+      trigger360Spin();
     };
 
     const handlePointerUp = () => {
-      isUserDragging = false;
-      setIsDragging(false);
+      setIsInteracting(false);
     };
 
-    const handlePointerLeave = () => {
-      isUserDragging = false;
-      setIsDragging(false);
-      mouseX = 0;
-      mouseY = 0;
-    };
-
-    // Attach listeners
-    container.addEventListener('pointermove', handlePointerMove);
     container.addEventListener('pointerdown', handlePointerDown);
     window.addEventListener('pointerup', handlePointerUp);
-    container.addEventListener('pointerleave', handlePointerLeave);
 
     // --- Responsive Resize ---
     const handleResize = () => {
@@ -197,8 +197,7 @@ export default function Interactive3DObject({ className = '' }) {
       const height = container.clientHeight;
       if (width === 0 || height === 0) return;
 
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+      fitCameraToViewport();
       renderer.setSize(width, height);
     };
 
@@ -212,28 +211,32 @@ export default function Interactive3DObject({ className = '' }) {
 
       const elapsedTime = clock.getElapsedTime();
 
-      // Inertia decay after dragging
-      if (!isUserDragging) {
-        velocityX *= 0.93;
-        velocityY *= 0.93;
-        targetRotY += velocityX;
-        targetRotX += velocityY;
+      // By default: rotating facing front continuously without any user interruption
+      starMesh.rotation.z += 0.007;
 
-        // Autonomous organic idle rotation and floating
-        targetRotY += 0.004;
-        targetRotX += 0.0018;
+      // Handle interactive 360 spin
+      if (isSpinning360) {
+        const elapsed = performance.now() - spinStartTime;
+        const progress = Math.min(elapsed / spinDuration, 1);
+        // Smooth ease-in-out cubic
+        const ease = progress < 0.5 
+          ? 4 * progress * progress * progress 
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+        
+        starMesh.rotation.y = spinStartRotY + ease * (Math.PI * 2);
 
-        // Subtle hover tilt contribution
-        targetRotY += mouseX * 0.006;
-        targetRotX -= mouseY * 0.006;
+        if (progress >= 1) {
+          isSpinning360 = false;
+          starMesh.rotation.y = 0;
+        }
+      } else {
+        // Keep front-facing by gently returning X and Y rotations to 0
+        starMesh.rotation.y += (0 - starMesh.rotation.y) * 0.08;
+        starMesh.rotation.x += (0 - starMesh.rotation.x) * 0.08;
       }
 
-      // Smooth damping (lerp) towards target orientation
-      torusMesh.rotation.y += (targetRotY - torusMesh.rotation.y) * 0.08;
-      torusMesh.rotation.x += (targetRotX - torusMesh.rotation.x) * 0.08;
-
-      // Soft sinusoidal floating along Y-axis
-      torusMesh.position.y = Math.sin(elapsedTime * 1.8) * 0.16;
+      // Gentle vertical floating motion
+      starMesh.position.y = Math.sin(elapsedTime * 1.5) * 0.16;
 
       renderer.render(scene, camera);
     };
@@ -244,10 +247,8 @@ export default function Interactive3DObject({ className = '' }) {
     return () => {
       cancelAnimationFrame(animationFrameId);
       resizeObserver.disconnect();
-      container.removeEventListener('pointermove', handlePointerMove);
       container.removeEventListener('pointerdown', handlePointerDown);
       window.removeEventListener('pointerup', handlePointerUp);
-      container.removeEventListener('pointerleave', handlePointerLeave);
 
       if (renderer.domElement && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -260,27 +261,25 @@ export default function Interactive3DObject({ className = '' }) {
   }, []);
 
   return (
-    <div
-      ref={containerRef}
-      className={`relative select-none touch-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} ${className}`}
-      style={{ minHeight: '360px' }}
-      title="Click and drag to rotate in 3D"
-    >
-      {/* Subtle Drag & Rotate Interaction Prompt */}
-      {!hasInteracted && (
-        <div className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/70 backdrop-blur-md border border-white/20 text-white/90 text-[11px] font-medium tracking-wide shadow-lg transition-opacity duration-300">
-          <Rotate3d size={13} className="text-blue-400 animate-spin-slow" />
-          <span>Drag to rotate 3D</span>
-        </div>
-      )}
-
-      {/* Soft Ambient Radial Glow Behind 3D Mesh */}
+    <div className={`relative flex flex-col items-center justify-center ${className}`}>
+      {/* 3D WebGL Canvas Viewport */}
       <div
-        className="pointer-events-none absolute inset-0 -z-10 rounded-full blur-3xl opacity-35"
-        style={{
-          background: 'radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.25), rgba(99, 102, 241, 0.15) 50%, transparent 70%)',
-        }}
-      />
+        ref={containerRef}
+        className={`w-full h-full relative select-none touch-none cursor-pointer transition-transform duration-300 ${
+          isInteracting ? 'scale-98' : 'hover:scale-[1.015]'
+        }`}
+        style={{ minHeight: '440px' }}
+        title="Click to spin the 3D star knot 360°"
+      >
+        {/* Soft Ambient Radial Glow Behind 3D Mesh */}
+        <div
+          className="pointer-events-none absolute inset-0 -z-10 rounded-full blur-3xl opacity-50"
+          style={{
+            background:
+              'radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.35), rgba(99, 102, 241, 0.22) 50%, transparent 70%)',
+          }}
+        />
+      </div>
     </div>
   );
 }

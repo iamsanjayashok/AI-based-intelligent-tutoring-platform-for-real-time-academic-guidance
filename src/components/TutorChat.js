@@ -3,7 +3,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import { ChevronLeft, ChevronRight, ClipboardCheck, GraduationCap, Loader2, Send, X, Mic, MicOff, Sparkles, ZoomIn, ZoomOut, ExternalLink, User, Presentation, Check, Settings, Volume2, Globe, MessageSquare, Power } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import ReactMarkdown from 'react-markdown';
-import { generateNotes, generateSubtopicAssessment } from '../services/gemini';
+import { generateNotes, generateSubtopicAssessment, chatWithTutor } from '../services/gemini';
 import { collection, query, getDocs, limit } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { logStudyMinutes } from '../services/userService';
@@ -1085,14 +1085,7 @@ ${userMsg}
         { role: 'user', parts: [{ text: promptWithDeck }] }
       ];
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.8-flash",
-        contents,
-        config: {
-          systemInstruction
-        }
-      });
-      const replyText = response.text || "";
+      const replyText = await chatWithTutor(contents, systemInstruction);
       setMessages(prev => [...prev, { id: `ai_${Date.now()}`, role: 'model', text: replyText, isDraft: false }]);
       // Pure text response only - NO voice output when AI tutor is off!
     } catch (e) {
@@ -1132,16 +1125,8 @@ ${userMsg}
       }
       setIsSpeaking(false);
       try {
-        const ai = getGenAI();
         const systemInstruction = buildTutorSystemInstruction();
-        const response = await ai.models.generateContent({
-          model: "gemini-3.8-flash",
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          config: {
-            systemInstruction
-          }
-        });
-        const text = response.text || "";
+        const text = await chatWithTutor([{ role: 'user', parts: [{ text: prompt }] }], systemInstruction);
         setMessages(prev => [...prev, { id: `ai_slide_${Date.now()}`, role: 'model', text, isDraft: false }]);
         // Pure text response only - NO voice output when AI tutor is off!
       } catch (e) {

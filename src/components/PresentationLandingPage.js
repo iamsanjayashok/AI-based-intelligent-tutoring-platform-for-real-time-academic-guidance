@@ -68,6 +68,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import Interactive3DObject from './Interactive3DObject';
+import RevealText, { RevealTextDemo } from '@/components/ui/reveal-text';
 
 /* =========================================================================
    1. INTERACTIVE PARTICLE CONSTELLATION CANVAS (Particle & WebGL-style effect)
@@ -719,6 +720,228 @@ function ShimmerSkeletonDemo({ isSkeletonActive }) {
 /* =========================================================================
    MAIN PRESENTATION LANDING PAGE COMPONENT (LIGHT LUXURY THEME)
    ========================================================================= */
+// ============================================================================
+// STACKED CARDS DECK ICON (Represents cards displaying one upon another)
+// ============================================================================
+function StackedCardsDeckIcon({ className = "w-4 h-4 text-blue-600" }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="12 2 2 7 12 12 22 7 12 2" fill="currentColor" fillOpacity="0.15" />
+      <polyline points="2 12 12 17 22 12" />
+      <polyline points="2 17 12 22 22 17" />
+    </svg>
+  );
+}
+
+// ============================================================================
+// STACKING CARD WRAPPER: Cards Display One Upon Another with Smooth Scrolling UI
+// Each card scrolls up, stacks directly on top of previous cards with layered sticky
+// offset, and gracefully scales down the cards beneath with elevation depth shadows.
+// ============================================================================
+function StackingCardWrapper({
+  index,
+  total = 4,
+  isLast = false,
+  id,
+  badge,
+  number,
+  title,
+  subtitle,
+  children
+}) {
+  const containerRef = useRef(null);
+  const [stackMetrics, setStackMetrics] = useState({
+    depth: 0,            // How many cards have stacked on top of this one (0 to 3)
+    scale: 1,
+    translateY: 0,
+    dimOpacity: 0,
+    isTopmost: index === 0,
+    entranceOffset: 0,
+    entranceScale: 1
+  });
+
+  useEffect(() => {
+    let ticking = false;
+
+    const handleScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          if (!containerRef.current) return;
+
+          const isMobile = window.innerWidth < 640;
+          const stickyTop = isMobile ? 68 + index * 22 : 80 + index * 28;
+
+          // 1. Calculate how many subsequent cards have stacked on top of this card
+          let totalStackedAbove = 0;
+          for (let k = index + 1; k < total; k++) {
+            const nextEl = document.getElementById(`stacking-card-${k}`);
+            if (nextEl) {
+              const nextRect = nextEl.getBoundingClientRect();
+              const nextStickyTop = isMobile ? 68 + k * 22 : 80 + k * 28;
+              const startY = window.innerHeight * 0.92;
+              const endY = nextStickyTop + 20;
+
+              if (nextRect.top < startY) {
+                const progress = Math.max(0, Math.min(1, (startY - nextRect.top) / (startY - endY)));
+                totalStackedAbove += progress;
+              }
+            }
+          }
+
+          // 2. Calculate entrance glide for this card as it rises to meet the stack
+          let entranceOffset = 0;
+          let entranceScale = 1;
+          const thisRect = containerRef.current.getBoundingClientRect();
+          if (thisRect.top > stickyTop) {
+            const glideRange = window.innerHeight * 0.45;
+            const distFromSticky = thisRect.top - stickyTop;
+            const entranceProg = Math.max(0, Math.min(1, distFromSticky / glideRange));
+            entranceOffset = entranceProg * 18;
+            entranceScale = 1 - entranceProg * 0.025;
+          }
+
+          // 3. Smooth scale down and lift for underlying cards as cards stack upon them
+          // depth: 0 -> scale 1.0; depth: 1 -> scale 0.965; depth: 2 -> scale 0.932; depth: 3 -> scale 0.90
+          const scale = Math.max(0.89, 1 - totalStackedAbove * 0.034) * entranceScale;
+          const translateY = -totalStackedAbove * 8 + entranceOffset;
+          const dimOpacity = Math.min(0.28, totalStackedAbove * 0.09);
+          const isTopmost = totalStackedAbove < 0.25;
+
+          setStackMetrics({
+            depth: totalStackedAbove,
+            scale,
+            translateY,
+            dimOpacity,
+            isTopmost,
+            entranceOffset,
+            entranceScale
+          });
+
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    handleScroll();
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    window.addEventListener('resize', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', handleScroll);
+    };
+  }, [index, total]);
+
+  const scrollToNextCard = () => {
+    const nextEl = document.getElementById(`stacking-card-${index + 1}`);
+    if (nextEl) {
+      const isMobile = window.innerWidth < 640;
+      const nextStickyTop = isMobile ? 68 + (index + 1) * 22 : 80 + (index + 1) * 28;
+      const top = nextEl.getBoundingClientRect().top + window.scrollY - nextStickyTop - 10;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  };
+
+  const scrollToPrevCard = () => {
+    const prevEl = document.getElementById(`stacking-card-${index - 1}`);
+    if (prevEl) {
+      const isMobile = window.innerWidth < 640;
+      const prevStickyTop = isMobile ? 68 + (index - 1) * 22 : 80 + (index - 1) * 28;
+      const top = prevEl.getBoundingClientRect().top + window.scrollY - prevStickyTop - 10;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  };
+
+  // Higher index cards have higher zIndex so they physically stack ON TOP of earlier cards
+  const zIndex = 20 + index * 10;
+
+  return (
+    <div
+      ref={containerRef}
+      id={`stacking-card-${index}`}
+      className={`relative w-full ${isLast ? 'min-h-[560px] mb-16' : 'min-h-[580px] mb-[50vh]'}`}
+    >
+      {id && <div id={id} className="absolute -top-28" />}
+
+      {/* Layered Sticky Viewport: Each card sticks with a staggered top offset so its header tab stays visible */}
+      <div 
+        className="sticky w-full transition-[top] duration-150"
+        style={{ 
+          top: `calc(5rem + ${index * 28}px)`,
+          zIndex
+        }}
+      >
+        <div 
+          style={{
+            transform: `translateY(${stackMetrics.translateY.toFixed(1)}px) scale(${stackMetrics.scale.toFixed(3)})`,
+            transformOrigin: '50% 0%',
+            transition: 'transform 0.12s cubic-bezier(0.2, 0, 0, 1)'
+          }}
+          className="w-full will-change-transform relative"
+        >
+          {/* Card Top Meta Tab (Remains visible as subsequent cards stack upon it) */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 px-2">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-blue-100/90 text-blue-900 border border-blue-200/90 shadow-2xs backdrop-blur-md">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                <span>Layer {number} of 0{total} &bull; {badge}</span>
+              </span>
+              <span className="text-sm font-bold text-slate-900 hidden md:inline drop-shadow-2xs">
+                {title} <span className="text-slate-500 font-normal">&bull; {subtitle}</span>
+              </span>
+            </div>
+
+            {/* Smooth Scroll Navigation Controls */}
+            <div className="flex items-center gap-2 text-xs font-mono font-medium">
+              {index > 0 && (
+                <button
+                  onClick={scrollToPrevCard}
+                  className="flex items-center gap-1.5 bg-white/95 hover:bg-slate-50 border border-slate-200/90 text-slate-700 hover:text-slate-950 px-2.5 py-1 rounded-xl shadow-2xs backdrop-blur-md transition-all duration-150 hover:scale-105 active:scale-95"
+                  title="Scroll to previous layer"
+                >
+                  <span className="text-blue-600 font-bold">&uarr;</span>
+                  <span>Unstack Layer 0{index}</span>
+                </button>
+              )}
+
+              {!isLast ? (
+                <button
+                  onClick={scrollToNextCard}
+                  className="flex items-center gap-1.5 bg-white/95 hover:bg-blue-50/90 border border-blue-200/90 text-slate-800 hover:text-blue-950 px-3 py-1 rounded-xl shadow-2xs backdrop-blur-md transition-all duration-150 hover:scale-105 active:scale-95 group"
+                  title="Smoothly scroll and stack next card on top"
+                >
+                  <StackedCardsDeckIcon className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition-transform" />
+                  <span>Stack Layer 0{index + 2} on Top</span>
+                  <span className="text-blue-600 font-bold group-hover:translate-y-0.5 transition-transform">&darr;</span>
+                </button>
+              ) : (
+                <span className="text-emerald-700 font-bold flex items-center gap-1.5 bg-emerald-50/95 border border-emerald-200/90 px-3 py-1 rounded-xl shadow-2xs backdrop-blur-md">
+                  <CheckCircle2 size={13} className="text-emerald-600" />
+                  <span>Full Stack Complete (4/4 Layers)</span>
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Main Card Body Container (Heavy elevation shadow casting downward onto underlying cards) */}
+          <div className="relative shadow-[0_-12px_30px_-6px_rgba(15,23,42,0.12),0_25px_60px_-15px_rgba(15,23,42,0.22)] rounded-3xl bg-white border border-slate-200/95 overflow-hidden transition-shadow duration-200">
+            {/* Soft Ambient Depth Overlay for Underlying Cards */}
+            <div 
+              className="pointer-events-none absolute inset-0 z-30 rounded-3xl transition-opacity duration-150"
+              style={{
+                opacity: stackMetrics.dimOpacity,
+                backgroundColor: '#0f172a'
+              }}
+            />
+
+            {children}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PresentationLandingPage({
   user,
   onGoToDashboard,
@@ -732,6 +955,7 @@ export default function PresentationLandingPage({
   // Navigation & Scroll state
   const [scrolled, setScrolled] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
+  const [showTypographyDemo, setShowTypographyDemo] = useState(false);
 
   // Global mouse coordinates for background cursor spotlight & particle canvas
   const mousePos = useRef({ x: null, y: null });
@@ -800,6 +1024,91 @@ export default function PresentationLandingPage({
 
   // 5. Skeleton Shimmer Toggle State
   const [isSkeletonActive, setIsSkeletonActive] = useState(false);
+
+  // 6. Interactive Showcase Carousel State
+  const [activeShowcaseIndex, setActiveShowcaseIndex] = useState(0);
+  const [carouselDirection, setCarouselDirection] = useState(1);
+
+  const showcaseTabs = [
+    {
+      id: 'voice-chamber',
+      number: '01',
+      title: 'The Acoustic Voice Chamber.',
+      shortTitle: 'Voice Chamber',
+      subtitle: 'Conversational latency that feels human.',
+      description: 'Traditional chatbots force you to type back and forth. Our voice engine streams continuous 16kHz audio over full-duplex WebSockets. Speak naturally, interrupt mid-sentence, or ask for an analogy in another language.',
+      badge: 'Interactive Showcase 01',
+      badgeColor: 'bg-blue-100 text-blue-800 border-blue-200',
+      icon: Mic
+    },
+    {
+      id: 'theatre-mode',
+      number: '02',
+      title: 'Synchronized Slide Theatre.',
+      shortTitle: 'Slide Theatre',
+      subtitle: 'Dual-coding visual pedagogy for deep retention.',
+      description: 'Listening alone causes cognitive drift. Every lesson subtopic generates an interactive, high-contrast visual slide deck. As the AI tutor lectures, slides advance in lockstep, spotlighting formulas, diagrams, and key takeaways.',
+      badge: 'Interactive Showcase 02',
+      badgeColor: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+      icon: Presentation
+    },
+    {
+      id: 'curriculum-architect',
+      number: '03',
+      title: 'Curriculum Architect.',
+      shortTitle: 'Curriculum Architect',
+      subtitle: 'Transform any source into an academic syllabus.',
+      description: 'Feed in a textbook PDF, a YouTube lecture URL, or a simple topic prompt. The multimodal synthesis engine designs a complete 10-week curriculum organized into Units, Topics, and Subtopics.',
+      badge: 'Interactive Showcase 03',
+      badgeColor: 'bg-cyan-100 text-cyan-800 border-cyan-200',
+      icon: BookOpen
+    },
+    {
+      id: 'rubric-evaluation',
+      number: '04',
+      title: 'Semantic Rubric Evaluator.',
+      shortTitle: 'Rubric Evaluator',
+      subtitle: 'Grading subjective reasoning beyond multiple choice.',
+      description: 'Standard automated tests rely on trivia quizzes. AI Tutor assesses conceptual depth, mathematical rigor, and nuanced trade-offs through multi-dimensional analytical rubrics.',
+      badge: 'Interactive Showcase 04',
+      badgeColor: 'bg-amber-100 text-amber-800 border-amber-200',
+      icon: CheckCircle2
+    }
+  ];
+
+  const handleNextShowcase = () => {
+    setCarouselDirection(1);
+    setActiveShowcaseIndex((prev) => (prev + 1) % showcaseTabs.length);
+  };
+
+  const handlePrevShowcase = () => {
+    setCarouselDirection(-1);
+    setActiveShowcaseIndex((prev) => (prev - 1 + showcaseTabs.length) % showcaseTabs.length);
+  };
+
+  const handleSelectShowcase = (index) => {
+    setCarouselDirection(index >= activeShowcaseIndex ? 1 : -1);
+    setActiveShowcaseIndex(index);
+  };
+
+  // Synchronize URL hash with carousel card
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash;
+      if (hash === '#voice-chamber') {
+        handleSelectShowcase(0);
+      } else if (hash === '#theatre-mode') {
+        handleSelectShowcase(1);
+      } else if (hash === '#curriculum-architect') {
+        handleSelectShowcase(2);
+      } else if (hash === '#rubric-evaluation') {
+        handleSelectShowcase(3);
+      }
+    };
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
 
   // Scroll listener
   useEffect(() => {
@@ -979,6 +1288,13 @@ export default function PresentationLandingPage({
             <a href="#rubric-evaluation" className="hover:text-blue-600 transition-colors">Rubric Grading</a>
             <a href="#interactive-timeline" className="hover:text-blue-600 transition-colors">Progression</a>
             <a href="#specifications" className="hover:text-blue-600 transition-colors">Specifications</a>
+            <button 
+              onClick={() => setShowTypographyDemo(true)}
+              className="px-2.5 py-1 rounded-full text-xs font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 transition-colors flex items-center gap-1"
+            >
+              <Sparkles size={11} className="text-emerald-600" />
+              <span>RevealText Demo</span>
+            </button>
           </nav>
 
           {/* User Sign-In / Dashboard CTA */}
@@ -1062,22 +1378,46 @@ export default function PresentationLandingPage({
               </motion.div>
 
               {/* Grand Keynote Display Heading with Iridescent Gradient Text */}
-              <motion.div 
-                initial={{ opacity: 0, y: 24 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.7, delay: 0.1 }}
-                className="space-y-6"
-              >
-                <h1 className="text-4xl sm:text-5xl md:text-6xl xl:text-7xl font-serif font-bold text-slate-950 tracking-tight leading-[1.08]">
-                  AI-based intelligent tutoring platform <br />
-                  <span className="bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600 bg-clip-text text-transparent animate-gradient-flow">
-                    for realtime academic guidance.
-                  </span>
-                </h1>
-                <p className="text-lg sm:text-xl text-slate-600 max-w-2xl mx-auto lg:mx-0 font-normal leading-relaxed">
-                  The autonomous learning companion that lectures with you over real-time bi-directional audio, projects synchronized slide decks, and evaluates deep subjective reasoning.
-                </p>
-              </motion.div>
+              <div className="space-y-6">
+                <RevealText
+                  as="h1"
+                  size="display"
+                  stagger={0.038}
+                  duration={0.8}
+                  delay={0.1}
+                  className="font-serif font-bold text-slate-950 tracking-tight !justify-start !text-left !px-0 !max-w-none"
+                  style={{
+                    justifyContent: 'flex-start',
+                    textAlign: 'left',
+                    marginLeft: 0,
+                    marginRight: 0,
+                    maxWidth: '100%',
+                    color: '#020617',
+                    lineHeight: 1.1,
+                    letterSpacing: '-0.025em'
+                  }}
+                  text="AI-based intelligent tutoring platform for realtime academic guidance."
+                />
+                <RevealText
+                  as="p"
+                  size="base"
+                  stagger={0.02}
+                  delay={0.3}
+                  duration={0.75}
+                  className="!text-slate-600 font-normal !justify-start !text-left !px-0"
+                  style={{
+                    justifyContent: 'flex-start',
+                    textAlign: 'left',
+                    marginLeft: 0,
+                    marginRight: 0,
+                    maxWidth: '42rem',
+                    color: '#475569',
+                    lineHeight: 1.6,
+                    fontSize: 'clamp(1rem, 1.2vw, 1.25rem)'
+                  }}
+                  text="The autonomous learning companion that lectures with you over real-time bi-directional audio, projects synchronized slide decks, and evaluates deep subjective reasoning."
+                />
+              </div>
 
               {/* Primary Action Buttons */}
               <motion.div 
@@ -1116,14 +1456,14 @@ export default function PresentationLandingPage({
               </motion.div>
             </div>
 
-            {/* Right Column: 3D Interactive Object (Matching Image 2) */}
+            {/* Right Column: 3D Interactive Star Object (Matching Image 2) */}
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.25 }}
-              className="lg:col-span-5 flex items-center justify-center relative w-full"
+              className="lg:col-span-5 flex items-center justify-center relative w-full overflow-visible"
             >
-              <Interactive3DObject className="w-full max-w-[480px] h-[340px] sm:h-[420px] lg:h-[480px]" />
+              <Interactive3DObject className="w-full max-w-[620px] h-[450px] sm:h-[520px] lg:h-[580px]" />
             </motion.div>
           </div>
 
@@ -1157,670 +1497,733 @@ export default function PresentationLandingPage({
             transition={{ duration: 0.8, delay: 0.3 }}
             className="pt-12 max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6"
           >
-            <TiltSpotlightCard className="p-6 text-left">
-              <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">16<span className="text-blue-600">kHz</span></span>
-              <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Uncompressed Audio</p>
-              <p className="text-xs text-slate-500 mt-1">Raw PCM bi-directional WebSockets</p>
-            </TiltSpotlightCard>
+            <div 
+              onClick={() => {
+                document.getElementById('voice-chamber')?.scrollIntoView({ behavior: 'smooth' });
+              }} 
+              className="cursor-pointer group"
+              title="Jump to Card 01: The Acoustic Voice Chamber"
+            >
+              <TiltSpotlightCard className="p-6 text-left group-hover:border-blue-300 group-hover:shadow-md transition-all duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">16<span className="text-blue-600">kHz</span></span>
+                  <ArrowRight size={14} className="text-slate-300 group-hover:text-blue-600 group-hover:translate-x-1 transition-all" />
+                </div>
+                <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Uncompressed Audio</p>
+                <p className="text-xs text-slate-500 mt-1">Raw PCM bi-directional WebSockets</p>
+              </TiltSpotlightCard>
+            </div>
 
-            <TiltSpotlightCard className="p-6 text-left">
-              <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">&lt; 380<span className="text-indigo-600">ms</span></span>
-              <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Interruption Reflex</p>
-              <p className="text-xs text-slate-500 mt-1">Stops instantly when you speak</p>
-            </TiltSpotlightCard>
+            <div 
+              onClick={() => {
+                document.getElementById('theatre-mode')?.scrollIntoView({ behavior: 'smooth' });
+              }} 
+              className="cursor-pointer group"
+              title="Jump to Card 02: Synchronized Slide Theatre"
+            >
+              <TiltSpotlightCard className="p-6 text-left group-hover:border-indigo-300 group-hover:shadow-md transition-all duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">&lt; 380<span className="text-indigo-600">ms</span></span>
+                  <ArrowRight size={14} className="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
+                </div>
+                <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Interruption Reflex</p>
+                <p className="text-xs text-slate-500 mt-1">Stops instantly when you speak</p>
+              </TiltSpotlightCard>
+            </div>
 
-            <TiltSpotlightCard className="p-6 text-left">
-              <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">100<span className="text-cyan-600">%</span></span>
-              <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Semantic Rubrics</p>
-              <p className="text-xs text-slate-500 mt-1">Subjective answer evaluation</p>
-            </TiltSpotlightCard>
+            <div 
+              onClick={() => {
+                document.getElementById('curriculum-architect')?.scrollIntoView({ behavior: 'smooth' });
+              }} 
+              className="cursor-pointer group"
+              title="Jump to Card 03: Curriculum Architect"
+            >
+              <TiltSpotlightCard className="p-6 text-left group-hover:border-purple-300 group-hover:shadow-md transition-all duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">10<span className="text-purple-600">+</span></span>
+                  <ArrowRight size={14} className="text-slate-300 group-hover:text-purple-600 group-hover:translate-x-1 transition-all" />
+                </div>
+                <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Global Dialects</p>
+                <p className="text-xs text-slate-500 mt-1">Multilingual speech coaching</p>
+              </TiltSpotlightCard>
+            </div>
 
-            <TiltSpotlightCard className="p-6 text-left">
-              <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">10<span className="text-purple-600">+</span></span>
-              <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Global Dialects</p>
-              <p className="text-xs text-slate-500 mt-1">Multilingual speech coaching</p>
-            </TiltSpotlightCard>
+            <div 
+              onClick={() => {
+                document.getElementById('rubric-evaluation')?.scrollIntoView({ behavior: 'smooth' });
+              }} 
+              className="cursor-pointer group"
+              title="Jump to Card 04: Semantic Rubric Evaluator"
+            >
+              <TiltSpotlightCard className="p-6 text-left group-hover:border-cyan-300 group-hover:shadow-md transition-all duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl sm:text-4xl font-mono font-bold text-slate-900 tracking-tight">100<span className="text-cyan-600">%</span></span>
+                  <ArrowRight size={14} className="text-slate-300 group-hover:text-cyan-600 group-hover:translate-x-1 transition-all" />
+                </div>
+                <p className="text-xs font-bold text-slate-700 mt-2 uppercase tracking-wider">Semantic Rubrics</p>
+                <p className="text-xs text-slate-500 mt-1">Subjective answer evaluation</p>
+              </TiltSpotlightCard>
+            </div>
           </motion.div>
 
         </div>
       </section>
 
       {/* =========================================================================
-          3. FEATURE 01: THE ACOUSTIC VOICE CHAMBER & ANIMATED AI ORB
+          3. SMOOTH STACKING CARDS DECK (Cards display one upon another)
           ========================================================================= */}
-      <section id="voice-chamber" className="py-24 md:py-32 relative z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
+      <section id="interactive-showcase" className="py-20 md:py-28 relative z-10">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           
-          <div className="max-w-3xl space-y-3">
-            <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-blue-100 text-blue-800 border border-blue-200">
-              Interactive Showcase 01
-            </span>
-            <h2 className="text-3xl sm:text-5xl font-serif font-bold text-slate-950 tracking-tight">
-              The Acoustic Voice Chamber. <br />
-              <span className="text-slate-500">Conversational latency that feels human.</span>
-            </h2>
-            <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-              Traditional chatbots force you to type back and forth. Our voice engine streams continuous 16kHz audio over full-duplex WebSockets. Speak naturally, interrupt mid-sentence, or ask for an analogy in another language.
-            </p>
-          </div>
-
-          {/* Main Voice Chamber Stage with 3D Card Pop-Up */}
-          <TiltSpotlightCard className="p-6 sm:p-10 space-y-8 overflow-hidden">
-            
-            {/* Header Telemetry Bar */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200/80">
-              <div className="flex items-center gap-3">
-                <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 tracking-wide">
-                    Live Channel Active &bull; Tutor {voicePersonality}
-                  </h3>
-                  <p className="text-xs text-slate-500 font-mono">Full-Duplex PCM &bull; Sub-400ms Gemini 2.5 Multimodal</p>
-                </div>
+          {/* Section Master Header */}
+          <div className="space-y-6">
+            <div className="max-w-3xl space-y-4">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-blue-100 text-blue-800 border border-blue-200 shadow-2xs">
+                <StackedCardsDeckIcon className="w-3.5 h-3.5 text-blue-700" />
+                <span>Core Platform Architecture &bull; Layered Stacking Deck</span>
               </div>
-
-              {/* Persona Selector Tabs */}
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500">Voice Model:</span>
-                <div className="flex gap-1 p-1 rounded-xl bg-slate-100/90 border border-slate-200">
-                  {['Aoede', 'Kore', 'Fenrir', 'Puck', 'Charon'].map((v) => (
-                    <button
-                      key={v}
-                      onClick={() => setVoicePersonality(v)}
-                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 ${
-                        voicePersonality === v 
-                          ? 'bg-blue-600 text-white shadow-sm' 
-                          : 'text-slate-600 hover:text-slate-900'
-                      }`}
-                    >
-                      {v}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <RevealText
+                as="h2"
+                size="xl"
+                stagger={0.035}
+                delay={0.1}
+                duration={0.75}
+                className="font-serif font-bold !text-slate-950 tracking-tight !justify-start !text-left !px-0 !max-w-none"
+                style={{
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  marginLeft: 0,
+                  marginRight: 0,
+                  maxWidth: '100%',
+                  color: '#020617',
+                  lineHeight: 1.15
+                }}
+                text="Engineered for deep comprehension. Four synergistic systems stacked one upon another."
+              />
+              <RevealText
+                as="p"
+                size="base"
+                stagger={0.018}
+                delay={0.25}
+                duration={0.7}
+                className="!text-slate-600 !justify-start !text-left !px-0"
+                style={{
+                  justifyContent: 'flex-start',
+                  textAlign: 'left',
+                  marginLeft: 0,
+                  marginRight: 0,
+                  maxWidth: '48rem',
+                  color: '#475569',
+                  lineHeight: 1.6
+                }}
+                text="Scroll smoothly to watch each foundational engine stack directly upon the previous layer. From raw audio processing to synchronized slide projection, curriculum decomposition, and multidimensional rubric grading—each system rests physically on top of the stack as you explore."
+              />
             </div>
 
-            {/* Central Stage: Animated AI Orb + Spoken Commentary + Waveforms */}
-            <div className="grid md:grid-cols-12 gap-8 items-center">
-              
-              {/* Animated AI Orb Display */}
-              <div className="md:col-span-5 rounded-2xl bg-gradient-to-b from-slate-50 to-blue-50/40 border border-slate-200/80">
-                <AnimatedAiOrb 
-                  orbState={orbState} 
-                  onClickState={(newState) => {
-                    setOrbState(newState);
-                    setIsSpeaking(newState === 'speaking');
-                  }} 
-                />
+            {/* Smooth Interactive Stack Navigation Bar */}
+            <div className="flex flex-wrap items-center gap-2.5 p-2 rounded-2xl bg-slate-100/90 border border-slate-200/90 shadow-2xs backdrop-blur-md">
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500 px-3 flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-blue-600" />
+                <span>Stack Deck:</span>
+              </span>
 
-                {/* AI Voice Equalizer Waveform Bars (AI Voice Waveform) */}
-                <div className="px-8 pb-6 flex items-center justify-center gap-1.5 h-10 w-full">
-                  {[25, 60, 95, 45, 85, 100, 70, 90, 40, 65, 80, 35, 90, 50, 30].map((h, i) => (
-                    <span
-                      key={i}
-                      className={`w-1.5 rounded-full transition-all duration-150 ${
-                        isSpeaking 
-                          ? 'bg-blue-600 opacity-90' 
-                          : 'bg-slate-300 opacity-40'
+              {[
+                { idx: 0, num: '01', title: 'Voice Chamber', id: 'stacking-card-0', badge: 'Layer 01' },
+                { idx: 1, num: '02', title: 'Slide Theatre', id: 'stacking-card-1', badge: 'Layer 02' },
+                { idx: 2, num: '03', title: 'Curriculum Architect', id: 'stacking-card-2', badge: 'Layer 03' },
+                { idx: 3, num: '04', title: 'Rubric Evaluator', id: 'stacking-card-3', badge: 'Layer 04' },
+              ].map((card) => (
+                <button
+                  key={card.idx}
+                  onClick={() => {
+                    const el = document.getElementById(card.id);
+                    if (el) {
+                      const isMobile = window.innerWidth < 640;
+                      const stickyTop = isMobile ? 68 + card.idx * 22 : 80 + card.idx * 28;
+                      const top = el.getBoundingClientRect().top + window.scrollY - stickyTop - 10;
+                      window.scrollTo({ top, behavior: 'smooth' });
+                    }
+                  }}
+                  className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold bg-white hover:bg-blue-50/80 text-slate-700 hover:text-blue-900 border border-slate-200/80 hover:border-blue-300 transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs"
+                >
+                  <span className="font-mono text-blue-600 font-bold">{card.num}</span>
+                  <span>{card.title}</span>
+                  <span className="text-[10px] font-mono text-slate-400 font-normal px-1.5 py-0.5 rounded bg-slate-100">
+                    {card.badge}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stacking Overlapping Cards Container */}
+          <div className="relative pt-6">
+
+            {/* CARD 01: The Acoustic Voice Chamber */}
+            <StackingCardWrapper
+              index={0}
+              total={4}
+              id="voice-chamber"
+              badge="Voice Architecture"
+              number="01"
+              title="The Acoustic Voice Chamber"
+              subtitle="Full-duplex 16kHz speech with sub-400ms reflex"
+            >
+              <TiltSpotlightCard className="p-6 sm:p-10 space-y-8 overflow-hidden">
+                {/* Header Telemetry Bar */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200/80">
+                  <div className="flex items-center gap-3">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500 animate-pulse" />
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-900 tracking-wide">
+                        Live Channel Active &bull; Tutor {voicePersonality}
+                      </h3>
+                      <p className="text-xs text-slate-500 font-mono">Full-Duplex PCM &bull; Sub-400ms Gemini 2.5 Multimodal</p>
+                    </div>
+                  </div>
+
+                  {/* Persona Selector Tabs */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-500">Voice Model:</span>
+                    <div className="flex gap-1 p-1 rounded-xl bg-slate-100/90 border border-slate-200">
+                      {['Aoede', 'Kore', 'Fenrir', 'Puck', 'Charon'].map((v) => (
+                        <button
+                          key={v}
+                          onClick={() => setVoicePersonality(v)}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 ${
+                            voicePersonality === v 
+                              ? 'bg-blue-600 text-white shadow-sm' 
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {v}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Central Stage: Animated AI Orb + Spoken Commentary + Waveforms */}
+                <div className="grid md:grid-cols-12 gap-8 items-center">
+                  {/* Animated AI Orb Display */}
+                  <div className="md:col-span-5 rounded-2xl bg-gradient-to-b from-slate-50 to-blue-50/40 border border-slate-200/80">
+                    <AnimatedAiOrb 
+                      orbState={orbState} 
+                      onClickState={(newState) => {
+                        setOrbState(newState);
+                        setIsSpeaking(newState === 'speaking');
+                      }} 
+                    />
+
+                    {/* AI Voice Equalizer Waveform Bars (AI Voice Waveform) */}
+                    <div className="px-8 pb-6 flex items-center justify-center gap-1.5 h-10 w-full">
+                      {[25, 60, 95, 45, 85, 100, 70, 90, 40, 65, 80, 35, 90, 50, 30].map((h, i) => (
+                        <span
+                          key={i}
+                          className={`w-1.5 rounded-full transition-all duration-150 ${
+                            isSpeaking 
+                              ? 'bg-blue-600 opacity-90' 
+                              : 'bg-slate-300 opacity-40'
+                          }`}
+                          style={{ height: isSpeaking ? `${h}%` : '15%' }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Spoken Telemetry & Interruption Reflex Tester */}
+                  <div className="md:col-span-7 space-y-6">
+                    {/* Spoken Output Container (Glassmorphic Neumorph-inset) */}
+                    <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-inner space-y-2 relative">
+                      <div className="flex items-center justify-between text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                        <span className="flex items-center gap-1.5">
+                          <Volume2 size={13} className="text-blue-600" />
+                          Synchronized Spoken Output
+                        </span>
+                        {interruptionTriggered && (
+                          <span className="text-amber-600 font-bold flex items-center gap-1 animate-pulse">
+                            <Zap size={12} /> Interruption Cutoff (&lt; 240ms)
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-slate-800 text-base sm:text-lg leading-relaxed font-normal">
+                        &ldquo;{simulatedTranscript}&rdquo;
+                      </p>
+                    </div>
+
+                    {/* Interruption Trigger Sandbox (Micro-interactions) */}
+                    <div className="space-y-3">
+                      <p className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500">
+                        Test Interruption Reflex (Click any prompt to cut the tutor off):
+                      </p>
+
+                      <div className="grid sm:grid-cols-3 gap-2.5">
+                        <button
+                          onClick={() => triggerVoiceSample(
+                            "Think of it like a spotlight in an orchestra—the spotlight shines only on the cellist when the melody demands it, highlighting relevant context!",
+                            "Analogy request"
+                          )}
+                          className="p-3 rounded-xl bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 text-left transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md group shadow-2xs"
+                        >
+                          <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1 mb-1">
+                            <Lightbulb size={13} /> Socratic Analogy
+                          </span>
+                          <p className="text-xs text-slate-700 group-hover:text-slate-950 leading-snug">
+                            &ldquo;Wait, can you explain attention with an everyday analogy?&rdquo;
+                          </p>
+                        </button>
+
+                        <button
+                          onClick={() => triggerVoiceSample(
+                            "Because language has sequential grammar! If words aren't tagged with wave coordinates, the model can't tell whether you wrote 'dog bites man' or 'man bites dog'.",
+                            "Conceptual doubt"
+                          )}
+                          className="p-3 rounded-xl bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 text-left transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md group shadow-2xs"
+                        >
+                          <span className="text-[11px] font-bold text-cyan-700 flex items-center gap-1 mb-1">
+                            <HelpCircle size={13} /> Conceptual Doubt
+                          </span>
+                          <p className="text-xs text-slate-700 group-hover:text-slate-950 leading-snug">
+                            &ldquo;Why doesn't standard self-attention know word order?&rdquo;
+                          </p>
+                        </button>
+
+                        <button
+                          onClick={() => triggerVoiceSample(
+                            "Absolument! L'attention capture les dépendances globales entre les mots sans dépendre de calculs récurrents lents.",
+                            "Multilingual translation"
+                          )}
+                          className="p-3 rounded-xl bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 text-left transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md group shadow-2xs"
+                        >
+                          <span className="text-[11px] font-bold text-purple-700 flex items-center gap-1 mb-1">
+                            <Globe size={13} /> Multilingual Shift
+                          </span>
+                          <p className="text-xs text-slate-700 group-hover:text-slate-950 leading-snug">
+                            &ldquo;Can you explain that last sentence in French?&rdquo;
+                          </p>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </TiltSpotlightCard>
+            </StackingCardWrapper>
+
+            {/* CARD 02: Synchronized Slide Theatre */}
+            <StackingCardWrapper
+              index={1}
+              total={4}
+              id="theatre-mode"
+              badge="Dual-Coding Engine"
+              number="02"
+              title="Synchronized Slide Theatre"
+              subtitle="Lockstep visual slide projections alongside live speech"
+            >
+              <TiltSpotlightCard className="overflow-hidden">
+                {/* Theatre Control Bar */}
+                <div className="px-6 py-4 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800 font-mono text-xs font-bold">
+                      Deck: Transformers &amp; Attention
+                    </span>
+                    <span className="text-xs text-slate-500 hidden sm:inline">&bull; 4 Concept Slides</span>
+                  </div>
+
+                  {/* Theater Navigation Controls */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentSlideIndex((prev) => (prev > 0 ? prev - 1 : sampleSlides.length - 1))}
+                      className="p-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-all duration-150 hover:scale-110 active:scale-95 shadow-2xs"
+                      title="Previous slide"
+                    >
+                      <ChevronLeft size={18} />
+                    </button>
+                    <span className="font-mono text-xs text-slate-700 font-bold px-2">
+                      {currentSlideIndex + 1} / {sampleSlides.length}
+                    </span>
+                    <button
+                      onClick={() => setCurrentSlideIndex((prev) => (prev < sampleSlides.length - 1 ? prev + 1 : 0))}
+                      className="p-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-all duration-150 hover:scale-110 active:scale-95 shadow-2xs"
+                      title="Next slide"
+                    >
+                      <ChevronRight size={18} />
+                    </button>
+
+                    <button
+                      onClick={() => setIsTheaterMode(!isTheaterMode)}
+                      className="ml-2 p-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-all duration-150 hover:scale-110 active:scale-95 shadow-2xs"
+                      title={isTheaterMode ? "Exit Theatre Dim" : "Enter Theatre Dim"}
+                    >
+                      {isTheaterMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Projected Slide Canvas (Light/Dark Switchable) */}
+                <div className={`p-8 sm:p-12 transition-all duration-300 relative ${
+                  isTheaterMode 
+                    ? 'bg-slate-950 text-slate-100' 
+                    : 'bg-white text-slate-800'
+                }`}>
+                  <div className="max-w-3xl mx-auto space-y-6">
+                    {/* Slide Tag / Step Number */}
+                    <div className="flex items-center justify-between">
+                      <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold tracking-wider uppercase ${
+                        isTheaterMode 
+                          ? 'bg-blue-900/60 text-blue-300 border border-blue-700' 
+                          : 'bg-blue-50 text-blue-700 border border-blue-200'
+                      }`}>
+                        {sampleSlides[currentSlideIndex].tag} &bull; Slide {sampleSlides[currentSlideIndex].number}
+                      </span>
+                      <span className="text-xs font-mono text-slate-400">
+                        Dual-Coding Projection Active
+                      </span>
+                    </div>
+
+                    {/* Slide Title & Core Explanation */}
+                    <div className="space-y-3">
+                      <h3 className={`text-2xl sm:text-4xl font-serif font-bold ${isTheaterMode ? 'text-white' : 'text-slate-950'}`}>
+                        {sampleSlides[currentSlideIndex].title}
+                      </h3>
+                      <p className={`text-base sm:text-lg leading-relaxed max-w-3xl ${isTheaterMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                        {sampleSlides[currentSlideIndex].body}
+                      </p>
+                    </div>
+
+                    {/* Mathematical Formula / Core Concept Display */}
+                    <div className={`p-5 rounded-2xl font-mono text-sm sm:text-base shadow-inner border ${
+                      isTheaterMode 
+                        ? 'bg-black/60 border-white/10 text-cyan-300' 
+                        : 'bg-slate-50 border-slate-200 text-blue-800'
+                    }`}>
+                      <p className={`text-[10px] uppercase tracking-wider mb-1 font-sans font-bold ${isTheaterMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                        Mathematical Formulation
+                      </p>
+                      <code>{sampleSlides[currentSlideIndex].formula}</code>
+                    </div>
+
+                    {/* Bottom Strip: Key Takeaway + Voice Commentary */}
+                    <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200/80">
+                      <div className={`p-4 rounded-xl border space-y-1 ${
+                        isTheaterMode ? 'bg-white/5 border-white/10' : 'bg-emerald-50/60 border-emerald-200'
+                      }`}>
+                        <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1.5">
+                          <CheckCircle2 size={13} /> Pedagogical Takeaway
+                        </span>
+                        <p className={`text-xs ${isTheaterMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                          {sampleSlides[currentSlideIndex].takeaway}
+                        </p>
+                      </div>
+
+                      <div className={`p-4 rounded-xl border space-y-1 ${
+                        isTheaterMode ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50/60 border-blue-200'
+                      }`}>
+                        <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1.5">
+                          <Headphones size={13} /> Tutor Live Commentary
+                        </span>
+                        <p className={`text-xs italic ${isTheaterMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                          &ldquo;{sampleSlides[currentSlideIndex].voiceQuote}&rdquo;
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide Selector Carousel Dots */}
+                <div className="px-6 py-4 bg-slate-50/90 border-t border-slate-200 flex items-center justify-center gap-2">
+                  {sampleSlides.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentSlideIndex(idx)}
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        currentSlideIndex === idx ? 'w-8 bg-blue-600' : 'w-2 bg-slate-300 hover:bg-slate-400'
                       }`}
-                      style={{ height: isSpeaking ? `${h}%` : '15%' }}
                     />
                   ))}
                 </div>
-              </div>
+              </TiltSpotlightCard>
+            </StackingCardWrapper>
 
-              {/* Spoken Telemetry & Interruption Reflex Tester */}
-              <div className="md:col-span-7 space-y-6">
-                
-                {/* Spoken Output Container (Glassmorphic Neumorph-inset) */}
-                <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-inner space-y-2 relative">
-                  <div className="flex items-center justify-between text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                    <span className="flex items-center gap-1.5">
-                      <Volume2 size={13} className="text-blue-600" />
-                      Synchronized Spoken Output
-                    </span>
-                    {interruptionTriggered && (
-                      <span className="text-amber-600 font-bold flex items-center gap-1 animate-pulse">
-                        <Zap size={12} /> Interruption Cutoff (&lt; 240ms)
-                      </span>
-                    )}
+            {/* CARD 03: Curriculum Architect */}
+            <StackingCardWrapper
+              index={2}
+              total={4}
+              id="curriculum-architect"
+              badge="Course Synthesis"
+              number="03"
+              title="Curriculum Architect"
+              subtitle="Deconstruct textbooks, lectures & prompts into syllabi"
+            >
+              <TiltSpotlightCard className="p-6 sm:p-10 space-y-8">
+                {/* Input Source Selector Pills & Skeleton Toggle */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex flex-wrap gap-2.5">
+                    <button
+                      onClick={() => handleSynthesizeDemo('mit_algorithms')}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs ${
+                        activeCoursePreview === 'mit_algorithms'
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                          : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                      }`}
+                    >
+                      <FileText size={15} />
+                      <span>PDF: &ldquo;MIT Algorithms &amp; Complexity.pdf&rdquo;</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleSynthesizeDemo('youtube_lecture')}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs ${
+                        activeCoursePreview === 'youtube_lecture'
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                          : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                      }`}
+                    >
+                      <Radio size={15} className="text-rose-500" />
+                      <span>YouTube: Stanford CS229 Machine Learning</span>
+                    </button>
+
+                    <button
+                      onClick={() => handleSynthesizeDemo('quantum_prompt')}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs ${
+                        activeCoursePreview === 'quantum_prompt'
+                          ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                          : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+                      }`}
+                    >
+                      <Sparkles size={15} className="text-amber-500" />
+                      <span>Prompt: &ldquo;Quantum Cryptography&rdquo;</span>
+                    </button>
                   </div>
-                  <p className="text-slate-800 text-base sm:text-lg leading-relaxed font-normal">
-                    &ldquo;{simulatedTranscript}&rdquo;
-                  </p>
+
+                  {/* Skeleton Shimmer Preview Toggle Button */}
+                  <button
+                    onClick={() => setIsSkeletonActive(!isSkeletonActive)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold border shrink-0 transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs ${
+                      isSkeletonActive 
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
+                        : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    <Sliders size={13} />
+                    <span>{isSkeletonActive ? 'Previewing Shimmer' : 'Skeleton Shimmer'}</span>
+                  </button>
                 </div>
 
-                {/* Interruption Trigger Sandbox (Micro-interactions) */}
-                <div className="space-y-3">
-                  <p className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500">
-                    Test Interruption Reflex (Click any prompt to cut the tutor off):
-                  </p>
+                {/* Live Progress Bar Simulation */}
+                {isSynthesizing && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs font-mono text-slate-600 font-bold">
+                      <span>Synthesizing syllabus via Gemini 2.5 Pro...</span>
+                      <span>{synthesisProgress}%</span>
+                    </div>
+                    <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full transition-all duration-300"
+                        style={{ width: `${synthesisProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
-                  <div className="grid sm:grid-cols-3 gap-2.5">
-                    <button
-                      onClick={() => triggerVoiceSample(
-                        "Think of it like a spotlight in an orchestra—the spotlight shines only on the cellist when the melody demands it, highlighting relevant context!",
-                        "Analogy request"
-                      )}
-                      className="p-3 rounded-xl bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 text-left transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md group shadow-2xs"
-                    >
-                      <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1 mb-1">
-                        <Lightbulb size={13} /> Socratic Analogy
-                      </span>
-                      <p className="text-xs text-slate-700 group-hover:text-slate-950 leading-snug">
-                        &ldquo;Wait, can you explain attention with an everyday analogy?&rdquo;
-                      </p>
-                    </button>
+                {/* Generated Curriculum Stream / Shimmer Skeleton */}
+                <div className="space-y-4">
+                  <ShimmerSkeletonDemo isSkeletonActive={isSkeletonActive} />
 
-                    <button
-                      onClick={() => triggerVoiceSample(
-                        "Because language has sequential grammar! If words aren't tagged with wave coordinates, the model can't tell whether you wrote 'dog bites man' or 'man bites dog'.",
-                        "Conceptual doubt"
-                      )}
-                      className="p-3 rounded-xl bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 text-left transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md group shadow-2xs"
-                    >
-                      <span className="text-[11px] font-bold text-cyan-700 flex items-center gap-1 mb-1">
-                        <HelpCircle size={13} /> Conceptual Doubt
-                      </span>
-                      <p className="text-xs text-slate-700 group-hover:text-slate-950 leading-snug">
-                        &ldquo;Why doesn't standard self-attention know word order?&rdquo;
-                      </p>
-                    </button>
+                  <div className="grid md:grid-cols-2 gap-6 pt-2">
+                    {/* Unit 01 */}
+                    <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2.5">
+                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-mono text-xs font-bold">Unit 01</span>
+                          <h4 className="text-sm font-bold text-slate-900">Foundational Algorithmic Paradigms</h4>
+                        </div>
+                        <span className="text-[11px] text-slate-500 font-mono">Weeks 1-3</span>
+                      </div>
 
-                    <button
-                      onClick={() => triggerVoiceSample(
-                        "Absolument! L'attention capture les dépendances globales entre les mots sans dépendre de calculs récurrents lents.",
-                        "Multilingual translation"
-                      )}
-                      className="p-3 rounded-xl bg-white hover:bg-blue-50/80 border border-slate-200 hover:border-blue-300 text-left transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] hover:shadow-md group shadow-2xs"
-                    >
-                      <span className="text-[11px] font-bold text-purple-700 flex items-center gap-1 mb-1">
-                        <Globe size={13} /> Multilingual Shift
-                      </span>
-                      <p className="text-xs text-slate-700 group-hover:text-slate-950 leading-snug">
-                        &ldquo;Can you explain that last sentence in French?&rdquo;
-                      </p>
-                    </button>
+                      <div className="space-y-2.5">
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">1.1 Asymptotic Complexity &amp; Master Theorem</p>
+                            <p className="text-[11px] text-slate-500">Recurrences, bounding divide-and-conquer loops</p>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">6 Slides</span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">1.2 Self-Balancing Red-Black Trees</p>
+                            <p className="text-[11px] text-slate-500">Rotations, invariants, O(log N) lookup proofs</p>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">8 Slides</span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">1.3 Dynamic Programming &amp; Memoization</p>
+                            <p className="text-[11px] text-slate-500">DAG shortest paths, optimal substructure</p>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">7 Slides</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Unit 02 */}
+                    <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div className="flex items-center gap-2.5">
+                          <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-mono text-xs font-bold">Unit 02</span>
+                          <h4 className="text-sm font-bold text-slate-900">Graph Theory &amp; Network Flows</h4>
+                        </div>
+                        <span className="text-[11px] text-slate-500 font-mono">Weeks 4-7</span>
+                      </div>
+
+                      <div className="space-y-2.5">
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">2.1 Dijkstra &amp; Bellman-Ford Negative Cycles</p>
+                            <p className="text-[11px] text-slate-500">Priority queues, edge relaxation matrices</p>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold">8 Slides</span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">2.2 Ford-Fulkerson Max-Flow Min-Cut</p>
+                            <p className="text-[11px] text-slate-500">Residual capacities, augmenting paths</p>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold">9 Slides</span>
+                        </div>
+
+                        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                          <div>
+                            <p className="text-xs font-bold text-slate-800">2.3 NP-Completeness &amp; Reductions</p>
+                            <p className="text-[11px] text-slate-500">Cook-Levin theorem, 3-SAT to Vertex Cover</p>
+                          </div>
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold">6 Slides</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </TiltSpotlightCard>
+            </StackingCardWrapper>
 
-              </div>
-
-            </div>
-
-          </TiltSpotlightCard>
-
-        </div>
-      </section>
-
-      {/* =========================================================================
-          4. FEATURE 02: SYNCHRONIZED SLIDE THEATRE (Dual-Coding Visual Pedagogy)
-          ========================================================================= */}
-      <section id="theatre-mode" className="py-24 md:py-32 relative z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
-          
-          <div className="max-w-3xl space-y-3">
-            <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-indigo-100 text-indigo-800 border border-indigo-200">
-              Interactive Showcase 02
-            </span>
-            <h2 className="text-3xl sm:text-5xl font-serif font-bold text-slate-950 tracking-tight">
-              Synchronized Slide Theatre. <br />
-              <span className="text-slate-500">Dual-coding visual pedagogy for deep retention.</span>
-            </h2>
-            <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-              Listening alone causes cognitive drift. Every lesson subtopic generates an interactive, high-contrast visual slide deck. As the AI tutor lectures, slides advance in lockstep, spotlighting formulas, diagrams, and key takeaways.
-            </p>
-          </div>
-
-          {/* Interactive Slide Theatre Screen */}
-          <TiltSpotlightCard className="overflow-hidden">
-            
-            {/* Theatre Control Bar */}
-            <div className="px-6 py-4 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <span className="px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800 font-mono text-xs font-bold">
-                  Deck: Transformers &amp; Attention
-                </span>
-                <span className="text-xs text-slate-500 hidden sm:inline">&bull; 4 Concept Slides</span>
-              </div>
-
-              {/* Theater Navigation Controls */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentSlideIndex((prev) => (prev > 0 ? prev - 1 : sampleSlides.length - 1))}
-                  className="p-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-all duration-150 hover:scale-110 active:scale-95 shadow-2xs"
-                  title="Previous slide"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <span className="font-mono text-xs text-slate-700 font-bold px-2">
-                  {currentSlideIndex + 1} / {sampleSlides.length}
-                </span>
-                <button
-                  onClick={() => setCurrentSlideIndex((prev) => (prev < sampleSlides.length - 1 ? prev + 1 : 0))}
-                  className="p-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 transition-all duration-150 hover:scale-110 active:scale-95 shadow-2xs"
-                  title="Next slide"
-                >
-                  <ChevronRight size={18} />
-                </button>
-
-                <div className="h-4 w-px bg-slate-300 mx-1" />
-
-                <button
-                  onClick={() => setIsTheaterMode(!isTheaterMode)}
-                  className={`p-1.5 rounded-lg transition-all duration-150 hover:scale-110 active:scale-95 border ${
-                    isTheaterMode 
-                      ? 'bg-blue-600 text-white border-blue-600' 
-                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200'
-                  }`}
-                  title="Toggle Fullscreen Focus"
-                >
-                  {isTheaterMode ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-                </button>
-              </div>
-            </div>
-
-            {/* Active Slide Stage (Shared Element Transitions) */}
-            <div className={`p-8 sm:p-12 transition-all ${isTheaterMode ? 'bg-slate-900 text-white' : 'bg-white'}`}>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={currentSlideIndex}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className="space-y-8"
-                >
-                  {/* Slide Tag & Number */}
-                  <div className="flex items-center justify-between">
-                    <span className={`px-3 py-1 rounded-full text-xs font-mono font-bold tracking-widest ${
-                      isTheaterMode 
-                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30' 
-                        : 'bg-blue-50 text-blue-700 border border-blue-200'
-                    }`}>
-                      {sampleSlides[currentSlideIndex].tag}
-                    </span>
-                    <span className={`text-4xl sm:text-5xl font-mono font-bold ${isTheaterMode ? 'text-white/10' : 'text-slate-200'}`}>
-                      {sampleSlides[currentSlideIndex].number}
-                    </span>
-                  </div>
-
-                  {/* Slide Title & Core Explanation */}
-                  <div className="space-y-3">
-                    <h3 className={`text-2xl sm:text-4xl font-serif font-bold ${isTheaterMode ? 'text-white' : 'text-slate-950'}`}>
-                      {sampleSlides[currentSlideIndex].title}
+            {/* CARD 04: Semantic Rubric Evaluator (Final Sticky Card) */}
+            <StackingCardWrapper
+              index={3}
+              total={4}
+              isLast={true}
+              id="rubric-evaluation"
+              badge="Subjective Reasoning"
+              number="04"
+              title="Semantic Rubric Evaluator"
+              subtitle="Analytical multi-criterion grading beyond multiple choice"
+            >
+              <TiltSpotlightCard className="p-6 sm:p-10 space-y-8">
+                {/* Answer Tier Selector */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Test Question:</p>
+                    <h3 className="text-base font-bold text-slate-900 mt-0.5">
+                      &ldquo;Distinguish between Overfitting and Underfitting, and formulate one regularization mechanism.&rdquo;
                     </h3>
-                    <p className={`text-base sm:text-lg leading-relaxed max-w-3xl ${isTheaterMode ? 'text-slate-300' : 'text-slate-600'}`}>
-                      {sampleSlides[currentSlideIndex].body}
-                    </p>
                   </div>
 
-                  {/* Mathematical Formula / Core Concept Display */}
-                  <div className={`p-5 rounded-2xl font-mono text-sm sm:text-base shadow-inner border ${
-                    isTheaterMode 
-                      ? 'bg-black/60 border-white/10 text-cyan-300' 
-                      : 'bg-slate-50 border-slate-200 text-blue-800'
-                  }`}>
-                    <p className={`text-[10px] uppercase tracking-wider mb-1 font-sans font-bold ${isTheaterMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                      Mathematical Formulation
-                    </p>
-                    <code>{sampleSlides[currentSlideIndex].formula}</code>
+                  <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200 shrink-0">
+                    <button
+                      onClick={() => setAnswerTier('shallow')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 ${
+                        answerTier === 'shallow'
+                          ? 'bg-rose-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Shallow Answer
+                    </button>
+                    <button
+                      onClick={() => setAnswerTier('partial')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 ${
+                        answerTier === 'partial'
+                          ? 'bg-amber-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Partial Answer
+                    </button>
+                    <button
+                      onClick={() => setAnswerTier('mastery')}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 ${
+                        answerTier === 'mastery'
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      Doctoral Mastery
+                    </button>
                   </div>
+                </div>
 
-                  {/* Bottom Strip: Key Takeaway + Voice Commentary */}
-                  <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-slate-200/80">
-                    <div className={`p-4 rounded-xl border space-y-1 ${
-                      isTheaterMode ? 'bg-white/5 border-white/10' : 'bg-emerald-50/60 border-emerald-200'
-                    }`}>
-                      <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1.5">
-                        <CheckCircle2 size={13} /> Essential Takeaway
+                {/* Answer Text & Evaluation Breakdown */}
+                <div className="grid md:grid-cols-12 gap-8 items-start">
+                  {/* Left: Student Answer & Analytical Criteria */}
+                  <div className="md:col-span-8 space-y-6">
+                    <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
+                      <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
+                        Simulated Student Response:
                       </span>
-                      <p className={`text-xs ${isTheaterMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                        {sampleSlides[currentSlideIndex].takeaway}
+                      <p className="text-slate-800 text-sm sm:text-base leading-relaxed font-serif italic">
+                        &ldquo;{currentRubric.studentText}&rdquo;
                       </p>
                     </div>
 
-                    <div className={`p-4 rounded-xl border space-y-1 ${
-                      isTheaterMode ? 'bg-blue-500/10 border-blue-500/20' : 'bg-blue-50/60 border-blue-200'
-                    }`}>
-                      <span className="text-[11px] font-bold text-blue-700 flex items-center gap-1.5">
-                        <Volume2 size={13} /> Spoken Tutor Commentary
+                    {/* Rubric Criteria Breakdown */}
+                    <div className="space-y-3">
+                      <p className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500">
+                        Multi-Dimensional Rubric Criteria:
+                      </p>
+
+                      <div className="space-y-2.5">
+                        {currentRubric.rubric.map((item, i) => (
+                          <div key={i} className="p-3.5 rounded-xl bg-white border border-slate-200/80 space-y-1.5 shadow-2xs">
+                            <div className="flex items-center justify-between text-xs font-bold">
+                              <span className="text-slate-800">{item.label}</span>
+                              <span className="font-mono text-blue-600">{item.score}/100</span>
+                            </div>
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-blue-600 rounded-full transition-all duration-500"
+                                style={{ width: `${item.score}%` }}
+                              />
+                            </div>
+                            <p className="text-[11px] text-slate-500">{item.status}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right: Score Ring & Feedback Callout */}
+                  <div className="md:col-span-4 flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-white to-slate-50 border border-slate-200 text-center space-y-5">
+                    <AnimatedProgressRing 
+                      percentage={currentRubric.score} 
+                      color={currentRubric.color} 
+                      label="Mastery Index"
+                    />
+
+                    <div className="space-y-1">
+                      <span className="px-3 py-0.5 rounded-full text-xs font-bold font-mono uppercase tracking-wider bg-slate-100 text-slate-700">
+                        Grade: {currentRubric.grade} ({currentRubric.tag})
                       </span>
-                      <p className={`text-xs italic ${isTheaterMode ? 'text-slate-300' : 'text-slate-700'}`}>
-                        &ldquo;{sampleSlides[currentSlideIndex].voiceQuote}&rdquo;
+                      <p className="text-xs text-slate-600 pt-2 leading-relaxed italic">
+                        &ldquo;{currentRubric.aiFeedback}&rdquo;
                       </p>
                     </div>
                   </div>
-                </motion.div>
-              </AnimatePresence>
-            </div>
+                </div>
+              </TiltSpotlightCard>
+            </StackingCardWrapper>
 
-            {/* Slide Pagination Indicator Dots */}
-            <div className="px-6 py-4 bg-slate-50/80 border-t border-slate-200 flex items-center justify-center gap-2">
-              {sampleSlides.map((s, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setCurrentSlideIndex(idx)}
-                  className={`h-2 rounded-full transition-all ${
-                    currentSlideIndex === idx ? 'w-8 bg-blue-600' : 'w-2 bg-slate-300 hover:bg-slate-400'
-                  }`}
-                />
-              ))}
-            </div>
-
-          </TiltSpotlightCard>
-
-        </div>
-      </section>
-
-      {/* =========================================================================
-          5. FEATURE 03: CURRICULUM ARCHITECT & SKELETON SHIMMER PREVIEW
-          ========================================================================= */}
-      <section id="curriculum-architect" className="py-24 md:py-32 relative z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
-          
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="max-w-3xl space-y-3">
-              <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-cyan-100 text-cyan-800 border border-cyan-200">
-                Interactive Showcase 03
-              </span>
-              <h2 className="text-3xl sm:text-5xl font-serif font-bold text-slate-950 tracking-tight">
-                Curriculum Architect. <br />
-                <span className="text-slate-500">Transform any source into an academic syllabus.</span>
-              </h2>
-              <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-                Feed in a textbook PDF, a YouTube lecture URL, or a simple topic prompt. The multimodal synthesis engine designs a complete 10-week curriculum organized into Units, Topics, and Subtopics.
-              </p>
-            </div>
-
-            {/* Skeleton Shimmer Preview Toggle Button */}
-            <div className="shrink-0">
-              <button
-                onClick={() => setIsSkeletonActive(!isSkeletonActive)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-bold border transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs ${
-                  isSkeletonActive 
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
-                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
-                }`}
-              >
-                <Sliders size={14} />
-                <span>{isSkeletonActive ? 'Previewing Shimmer Skeleton' : 'Toggle Skeleton Loading'}</span>
-              </button>
-            </div>
           </div>
-
-          {/* Interactive Source Synthesizer Sandbox */}
-          <TiltSpotlightCard className="p-6 sm:p-10 space-y-8">
-            
-            {/* Input Source Selector Pills */}
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => handleSynthesizeDemo('mit_algorithms')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs ${
-                  activeCoursePreview === 'mit_algorithms'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                }`}
-              >
-                <FileText size={15} />
-                <span>PDF: &ldquo;MIT Algorithms &amp; Complexity.pdf&rdquo;</span>
-              </button>
-
-              <button
-                onClick={() => handleSynthesizeDemo('youtube_lecture')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs ${
-                  activeCoursePreview === 'youtube_lecture'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                }`}
-              >
-                <Radio size={15} className="text-rose-500" />
-                <span>YouTube: Stanford CS229 Machine Learning</span>
-              </button>
-
-              <button
-                onClick={() => handleSynthesizeDemo('quantum_prompt')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 shadow-2xs ${
-                  activeCoursePreview === 'quantum_prompt'
-                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
-                    : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
-                }`}
-              >
-                <Sparkles size={15} className="text-amber-500" />
-                <span>Prompt: &ldquo;Quantum Cryptography&rdquo;</span>
-              </button>
-            </div>
-
-            {/* Live Progress Bar Simulation */}
-            {isSynthesizing && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-mono text-slate-600 font-bold">
-                  <span>Synthesizing syllabus via Gemini 2.5 Pro...</span>
-                  <span>{synthesisProgress}%</span>
-                </div>
-                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full transition-all duration-300"
-                    style={{ width: `${synthesisProgress}%` }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Generated Curriculum Stream / Shimmer Skeleton */}
-            <div className="space-y-4">
-              <ShimmerSkeletonDemo isSkeletonActive={isSkeletonActive} />
-
-              <div className="grid md:grid-cols-2 gap-6 pt-2">
-                
-                {/* Unit 01 */}
-                <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2.5">
-                      <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-mono text-xs font-bold">Unit 01</span>
-                      <h4 className="text-sm font-bold text-slate-900">Foundational Algorithmic Paradigms</h4>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-mono">Weeks 1-3</span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">1.1 Asymptotic Complexity &amp; Master Theorem</p>
-                        <p className="text-[11px] text-slate-500">Recurrences, bounding divide-and-conquer loops</p>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">6 Slides</span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">1.2 Self-Balancing Red-Black Trees</p>
-                        <p className="text-[11px] text-slate-500">Rotations, invariants, O(log N) lookup proofs</p>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">8 Slides</span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">1.3 Dynamic Programming &amp; Memoization</p>
-                        <p className="text-[11px] text-slate-500">DAG shortest paths, optimal substructure</p>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold">7 Slides</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Unit 02 */}
-                <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                    <div className="flex items-center gap-2.5">
-                      <span className="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-mono text-xs font-bold">Unit 02</span>
-                      <h4 className="text-sm font-bold text-slate-900">Graph Theory &amp; Network Flows</h4>
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-mono">Weeks 4-7</span>
-                  </div>
-
-                  <div className="space-y-2.5">
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">2.1 Dijkstra &amp; Bellman-Ford Negative Cycles</p>
-                        <p className="text-[11px] text-slate-500">Priority queues, edge relaxation matrices</p>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold">8 Slides</span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">2.2 Ford-Fulkerson Max-Flow Min-Cut</p>
-                        <p className="text-[11px] text-slate-500">Residual capacities, augmenting paths</p>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold">9 Slides</span>
-                    </div>
-
-                    <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-                      <div>
-                        <p className="text-xs font-bold text-slate-800">2.3 NP-Completeness &amp; Reductions</p>
-                        <p className="text-[11px] text-slate-500">Cook-Levin theorem, 3-SAT to Vertex Cover</p>
-                      </div>
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 font-bold">6 Slides</span>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-          </TiltSpotlightCard>
-
-        </div>
-      </section>
-
-      {/* =========================================================================
-          6. FEATURE 04: SEMANTIC RUBRIC EVALUATOR (Animated Progress Rings)
-          ========================================================================= */}
-      <section id="rubric-evaluation" className="py-24 md:py-32 relative z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
-          
-          <div className="max-w-3xl space-y-3">
-            <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-amber-100 text-amber-800 border border-amber-200">
-              Interactive Showcase 04
-            </span>
-            <h2 className="text-3xl sm:text-5xl font-serif font-bold text-slate-950 tracking-tight">
-              Semantic Rubric Evaluator. <br />
-              <span className="text-slate-500">Grading subjective reasoning beyond multiple choice.</span>
-            </h2>
-            <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-              Standard automated tests rely on trivia quizzes. AI Tutor assesses conceptual depth, mathematical rigor, and nuanced trade-offs through multi-dimensional analytical rubrics.
-            </p>
-          </div>
-
-          {/* Evaluation Sandbox Card */}
-          <TiltSpotlightCard className="p-6 sm:p-10 space-y-8">
-            
-            {/* Answer Tier Selector */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Test Question:</p>
-                <h3 className="text-base font-bold text-slate-900 mt-0.5">
-                  &ldquo;Distinguish between Overfitting and Underfitting, and formulate one regularization mechanism.&rdquo;
-                </h3>
-              </div>
-
-              <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-100 border border-slate-200 shrink-0">
-                <button
-                  onClick={() => setAnswerTier('shallow')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 ${
-                    answerTier === 'shallow' 
-                      ? 'bg-rose-600 text-white shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Surface (D+)
-                </button>
-                <button
-                  onClick={() => setAnswerTier('partial')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 ${
-                    answerTier === 'partial' 
-                      ? 'bg-amber-500 text-white shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Partial (B)
-                </button>
-                <button
-                  onClick={() => setAnswerTier('mastery')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all duration-150 hover:scale-105 active:scale-95 ${
-                    answerTier === 'mastery' 
-                      ? 'bg-emerald-600 text-white shadow-xs' 
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Mastery (A+)
-                </button>
-              </div>
-            </div>
-
-            {/* Student Answer & Live Animated Progress Ring */}
-            <div className="grid md:grid-cols-12 gap-8 items-center">
-              
-              {/* Left: Student Submission */}
-              <div className="md:col-span-8 space-y-4">
-                <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-500">
-                    <span>Simulated Student Answer</span>
-                    <span className="font-mono text-slate-400">Word count: ~50</span>
-                  </div>
-                  <p className="text-sm text-slate-800 leading-relaxed font-mono">
-                    &ldquo;{currentRubric.studentText}&rdquo;
-                  </p>
-                </div>
-
-                {/* Dimension Breakdown Bars */}
-                <div className="space-y-3 pt-2">
-                  <p className="text-xs font-mono font-bold uppercase tracking-wider text-slate-500">
-                    Graded Dimensions:
-                  </p>
-                  {currentRubric.rubric.map((r, i) => (
-                    <div key={i} className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 space-y-1.5">
-                      <div className="flex justify-between text-xs font-bold text-slate-800">
-                        <span>{r.label}</span>
-                        <span className="font-mono text-blue-600">{r.score} / 100</span>
-                      </div>
-                      <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
-                        <motion.div
-                          className="h-full bg-blue-600 rounded-full"
-                          initial={{ width: 0 }}
-                          animate={{ width: `${r.score}%` }}
-                          transition={{ duration: 0.8, delay: i * 0.15 }}
-                        />
-                      </div>
-                      <p className="text-[11px] text-slate-500">{r.status}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Right: Score Ring & Feedback Callout */}
-              <div className="md:col-span-4 flex flex-col items-center justify-center p-6 rounded-2xl bg-gradient-to-b from-white to-slate-50 border border-slate-200 text-center space-y-5">
-                <AnimatedProgressRing 
-                  percentage={currentRubric.score} 
-                  color={currentRubric.color} 
-                  label="Mastery Index"
-                />
-
-                <div className="space-y-1">
-                  <span className="px-3 py-0.5 rounded-full text-xs font-bold font-mono uppercase tracking-wider bg-slate-100 text-slate-700">
-                    Grade: {currentRubric.grade} ({currentRubric.tag})
-                  </span>
-                  <p className="text-xs text-slate-600 pt-2 leading-relaxed italic">
-                    &ldquo;{currentRubric.aiFeedback}&rdquo;
-                  </p>
-                </div>
-              </div>
-
-            </div>
-
-          </TiltSpotlightCard>
 
         </div>
       </section>
@@ -1835,13 +2238,42 @@ export default function PresentationLandingPage({
             <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-purple-100 text-purple-800 border border-purple-200">
               Pedagogical Engine
             </span>
-            <h2 className="text-3xl sm:text-5xl font-serif font-bold text-slate-950 tracking-tight">
-              The 5-Stage Learning Loop. <br />
-              <span className="text-slate-500">Engineered around Bloom&apos;s Cognitive Taxonomy.</span>
-            </h2>
-            <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-              Explore how every learning milestone systematically elevates comprehension from surface-level memorization to doctoral-level synthesis.
-            </p>
+            <RevealText
+              as="h2"
+              size="xl"
+              stagger={0.035}
+              delay={0.1}
+              duration={0.75}
+              className="font-serif font-bold !text-slate-950 tracking-tight !justify-start !text-left !px-0 !max-w-none"
+              style={{
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                marginLeft: 0,
+                marginRight: 0,
+                maxWidth: '100%',
+                color: '#020617',
+                lineHeight: 1.15
+              }}
+              text="The 5-Stage Learning Loop. Engineered around Bloom's Cognitive Taxonomy."
+            />
+            <RevealText
+              as="p"
+              size="base"
+              stagger={0.02}
+              delay={0.25}
+              duration={0.7}
+              className="!text-slate-600 !justify-start !text-left !px-0"
+              style={{
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                marginLeft: 0,
+                marginRight: 0,
+                maxWidth: '42rem',
+                color: '#475569',
+                lineHeight: 1.6
+              }}
+              text="Explore how every learning milestone systematically elevates comprehension from surface-level memorization to doctoral-level synthesis."
+            />
           </div>
 
           <InteractiveTimeline />
@@ -1859,12 +2291,42 @@ export default function PresentationLandingPage({
             <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-slate-100 text-slate-800 border border-slate-300">
               Technical Specifications
             </span>
-            <h2 className="text-3xl sm:text-5xl font-serif font-bold text-slate-950 tracking-tight">
-              Engineered with extreme precision.
-            </h2>
-            <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-              Every layer of the AI Tutor platform is designed for zero friction, high fidelity, and enduring data sovereignty.
-            </p>
+            <RevealText
+              as="h2"
+              size="xl"
+              stagger={0.035}
+              delay={0.1}
+              duration={0.75}
+              className="font-serif font-bold !text-slate-950 tracking-tight !justify-start !text-left !px-0 !max-w-none"
+              style={{
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                marginLeft: 0,
+                marginRight: 0,
+                maxWidth: '100%',
+                color: '#020617',
+                lineHeight: 1.15
+              }}
+              text="Engineered with extreme precision."
+            />
+            <RevealText
+              as="p"
+              size="base"
+              stagger={0.02}
+              delay={0.25}
+              duration={0.7}
+              className="!text-slate-600 !justify-start !text-left !px-0"
+              style={{
+                justifyContent: 'flex-start',
+                textAlign: 'left',
+                marginLeft: 0,
+                marginRight: 0,
+                maxWidth: '42rem',
+                color: '#475569',
+                lineHeight: 1.6
+              }}
+              text="Every layer of the AI Tutor platform is designed for zero friction, high fidelity, and enduring data sovereignty."
+            />
           </div>
 
           {/* Apple Bento Grid Specs */}
@@ -1942,9 +2404,21 @@ export default function PresentationLandingPage({
             <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-blue-100 text-blue-800 border border-blue-200">
               Clear Answers
             </span>
-            <h2 className="text-3xl sm:text-5xl font-serif font-bold text-slate-950 tracking-tight">
-              Frequently Asked Questions.
-            </h2>
+            <RevealText
+              as="h2"
+              size="xl"
+              stagger={0.04}
+              delay={0.1}
+              duration={0.75}
+              className="font-serif font-bold !text-slate-950 tracking-tight !justify-center !text-center !px-0 !max-w-none"
+              style={{
+                justifyContent: 'center',
+                textAlign: 'center',
+                color: '#020617',
+                lineHeight: 1.2
+              }}
+              text="Frequently Asked Questions."
+            />
           </div>
 
           <div className="space-y-4">
@@ -2013,12 +2487,36 @@ export default function PresentationLandingPage({
             <div className="!m-0 absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
             <div className="space-y-4 max-w-2xl mx-auto relative z-10">
-              <h2 className="text-3xl sm:text-5xl font-serif font-bold text-slate-950 tracking-tight">
-                Experience the next frontier of human learning.
-              </h2>
-              <p className="text-slate-600 text-base sm:text-lg leading-relaxed">
-                Step inside your personalized multimodal classroom. No installation required.
-              </p>
+              <RevealText
+                as="h2"
+                size="xl"
+                stagger={0.035}
+                delay={0.1}
+                duration={0.75}
+                className="font-serif font-bold !text-slate-950 tracking-tight !justify-center !text-center !px-0 !max-w-none"
+                style={{
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  color: '#020617',
+                  lineHeight: 1.2
+                }}
+                text="Experience the next frontier of human learning."
+              />
+              <RevealText
+                as="p"
+                size="base"
+                stagger={0.02}
+                delay={0.25}
+                duration={0.7}
+                className="!text-slate-600 !justify-center !text-center !px-0"
+                style={{
+                  justifyContent: 'center',
+                  textAlign: 'center',
+                  color: '#475569',
+                  lineHeight: 1.6
+                }}
+                text="Step inside your personalized multimodal classroom. No installation required."
+              />
             </div>
 
             <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-4 relative z-10">
@@ -2076,6 +2574,34 @@ export default function PresentationLandingPage({
           </div>
         </div>
       </footer>
+
+      {/* Standalone RevealText Typography Demo Modal */}
+      <AnimatePresence>
+        {showTypographyDemo && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/85 backdrop-blur-xl">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 16 }}
+              className="relative w-full max-w-5xl max-h-[92vh] rounded-3xl bg-[#09090b] border border-neutral-800 shadow-2xl overflow-y-auto"
+            >
+              <div className="sticky top-4 right-4 z-50 flex justify-end pr-4 pt-2">
+                <button
+                  onClick={() => setShowTypographyDemo(false)}
+                  className="px-3 py-1.5 rounded-full bg-neutral-800/90 hover:bg-neutral-700 text-neutral-300 hover:text-white text-xs font-mono font-medium border border-neutral-700 backdrop-blur-md flex items-center gap-1.5 transition-colors"
+                >
+                  <X size={14} />
+                  <span>Close Preview</span>
+                </button>
+              </div>
+
+              <div className="p-4 sm:p-8">
+                <RevealTextDemo />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
