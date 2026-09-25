@@ -55,52 +55,32 @@ export default function Dashboard({ onSelectCourse, onCreateNew }) {
     <div className="space-y-8">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-4xl font-bold text-slate-900 tracking-tight">Welcome Back</h2>
-          <p className="text-slate-500 mt-2 font-medium">Pick up where you left off or start a new journey.</p>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">Welcome Back</h2>
+          <p className="text-slate-500 mt-1 sm:mt-2 text-sm sm:text-base font-medium">Pick up where you left off or start a new journey.</p>
         </div>
       </div>
 
       {courses.length === 0 ? (
-        <div className="bg-white rounded-[32px] p-12 text-center border-2 border-dashed border-blue-100">
-          <Book className="mx-auto mb-4 text-blue-200" size={48} />
-          <h3 className="text-xl font-bold mb-2">No courses yet</h3>
-          <p className="text-slate-500 mb-6">Upload your study materials to generate your first course.</p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4">
+        <div className="bg-white rounded-[24px] sm:rounded-[32px] p-6 sm:p-10 md:p-12 text-center border-2 border-dashed border-blue-100">
+          <Book className="mx-auto mb-4 text-blue-200" size={44} />
+          <h3 className="text-lg sm:text-xl font-bold mb-2">No courses yet</h3>
+          <p className="text-slate-500 text-sm sm:text-base mb-6">Upload your study materials to generate your first course.</p>
+          <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
             <button
               onClick={onCreateNew}
-              className="bg-blue-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"
+              className="bg-blue-600 text-white px-6 sm:px-8 py-3 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95"
             >
               Get Started
-            </button>
-            <button
-              onClick={() => {
-                // We'll need to trigger the Sidebar's modal. 
-                // Since they are sibling-ish or parent-child, maybe we can just tell the user to use the sidebar 
-                // or use a custom event. 
-                // Simplest way: just dispatch an event or pass a prop down.
-                // Actually, I'll just add the Enter Code button directly here too with a local state or ref.
-                // But it's easier if we just trigger the sidebar modal.
-                // For now, let's just use a simple alert or just implement the modal here too if needed.
-                // Actually, let's just add the button and have it show a small prompt.
-                const code = prompt("Enter Course Code:");
-                if (code) {
-                  // This is a bit hacky but works for a quick "Get Started" redirect.
-                  // BETTER: Just add the button and let it be.
-                }
-              }}
-              className="bg-white border border-slate-200 text-slate-600 px-8 py-3 rounded-xl font-medium hover:bg-slate-50 transition-all"
-            >
-              Enter Code
             </button>
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
           {courses.map((course) => (
             <motion.div
               key={course.id}
               whileHover={{ y: -4 }}
-              className="bg-white rounded-[32px] p-8 shadow-sm border border-blue-50 cursor-pointer group transition-all hover:border-blue-100 hover:shadow-md"
+              className="bg-white rounded-[24px] sm:rounded-[32px] p-5 sm:p-7 md:p-8 shadow-sm border border-blue-50 cursor-pointer group transition-all hover:border-blue-100 hover:shadow-md"
               onClick={() => onSelectCourse(course)}
             >
               <div className="flex justify-between items-start mb-6">

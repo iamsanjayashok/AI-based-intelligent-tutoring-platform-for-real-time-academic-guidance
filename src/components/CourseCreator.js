@@ -206,7 +206,7 @@ export default function CourseCreator({ onComplete }) {
         </p>
       </div>
 
-      <div className="bg-white rounded-[32px] shadow-sm border border-blue-50 p-8">
+      <div className="bg-white rounded-[28px] sm:rounded-[32px] shadow-sm border border-blue-50 p-4 sm:p-6 md:p-8">
         {/* Navigation Tabs */}
         <div className="mb-6 flex flex-wrap gap-3">
           <button 

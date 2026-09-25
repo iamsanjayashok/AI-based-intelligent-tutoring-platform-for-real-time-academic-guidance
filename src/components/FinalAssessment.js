@@ -209,44 +209,44 @@ export default function FinalAssessment({ course, onBack }) {
   return (
     <div className="fixed inset-0 bg-slate-50 z-[80] flex flex-col overflow-hidden">
       {/* Fixed Sticky Header */}
-      <header className="p-4 md:p-6 bg-white border-b flex items-center justify-between sticky top-0 z-10 shadow-sm">
-        <div className="flex items-center gap-4">
-          <button onClick={onBack} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
-            <ChevronLeft size={24} />
+      <header className="p-3 sm:p-4 md:p-6 bg-white border-b flex flex-col sm:flex-row sm:items-center justify-between sticky top-0 z-10 shadow-2xs gap-3">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <button onClick={onBack} className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors shrink-0">
+            <ChevronLeft size={22} />
           </button>
-          <div>
-            <h3 className="text-xl font-bold text-slate-900 leading-none mb-1">Final Course Assessment</h3>
-            <p className="text-sm text-slate-500 flex items-center gap-1.5">
-              <span className="truncate max-w-[200px] md:max-w-md">{course.title}</span>
+          <div className="min-w-0">
+            <h3 className="text-base sm:text-xl font-bold text-slate-900 leading-none mb-1 truncate">Final Course Assessment</h3>
+            <p className="text-xs text-slate-500 flex items-center gap-1.5 truncate">
+              <span className="truncate max-w-[180px] sm:max-w-md">{course.title}</span>
             </p>
           </div>
         </div>
         
         {evaluated ? (
-          <div className="flex items-center gap-4 bg-blue-600 text-white px-4 md:px-6 py-2 rounded-2xl shadow-lg transition-all scale-animation">
+          <div className="flex items-center gap-3 sm:gap-4 bg-blue-600 text-white px-4 md:px-6 py-2 rounded-2xl shadow-lg transition-all scale-animation self-end sm:self-auto">
             <div className="hidden md:block">
               <p className="text-[10px] font-black uppercase text-blue-200 leading-none mb-1">Your Total Score</p>
               <p className="text-xs font-medium text-blue-100">*Exc. Descriptive</p>
             </div>
-            <span className="text-2xl font-bold">{Math.round(scores.total)}<span className="text-sm font-normal opacity-70 ml-1">/100</span></span>
+            <span className="text-xl sm:text-2xl font-bold">{Math.round(scores.total)}<span className="text-sm font-normal opacity-70 ml-1">/100</span></span>
           </div>
         ) : (
-          <div className="flex items-center gap-4 md:gap-6">
+          <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-4 md:gap-6 w-full sm:w-auto">
             <div className="hidden md:flex flex-col items-end">
               <span className="text-sm font-bold text-slate-900">100 Marks Total</span>
               <span className="text-xs text-slate-500">3 Sections • 38 Questions</span>
             </div>
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-xl border-2 font-mono font-bold text-sm sm:text-lg ${timeLeft < 300 ? 'bg-red-50 border-red-200 text-red-600 animate-pulse' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
+              <Clock size={16} className={timeLeft < 300 ? 'text-red-500' : 'text-slate-400'} />
+              <span>{formatTime(timeLeft)}</span>
+            </div>
             <button
               onClick={calculateScore}
-              className="px-6 py-3 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 shadow-md transition-all active:scale-95 flex items-center gap-2 whitespace-nowrap"
+              className="px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white rounded-xl font-bold text-xs sm:text-sm hover:bg-blue-700 shadow-md transition-all active:scale-95 flex items-center gap-1.5 whitespace-nowrap"
             >
-              <ClipboardCheck size={18} />
-              Finish & Evaluate
+              <ClipboardCheck size={16} />
+              <span>Finish & Evaluate</span>
             </button>
-            <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border-2 font-mono font-bold text-lg ${timeLeft < 300 ? 'bg-red-50 border-red-200 text-red-600 animate-pulse' : 'bg-slate-50 border-slate-100 text-slate-700'}`}>
-              <Clock size={20} className={timeLeft < 300 ? 'text-red-500' : 'text-slate-400'} />
-              {formatTime(timeLeft)}
-            </div>
           </div>
         )}
       </header>

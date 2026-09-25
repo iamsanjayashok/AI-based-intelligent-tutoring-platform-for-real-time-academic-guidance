@@ -11,6 +11,7 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
   const [showAssessment, setShowAssessment] = useState(false);
   const [assessmentStarted, setAssessmentStarted] = useState(false);
   const [activeSession, setActiveSession] = useState(null);
+  const [mobileTab, setMobileTab] = useState('syllabus'); // 'syllabus' | 'content'
   
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareCode, setShareCode] = useState('');
@@ -57,36 +58,40 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 antialiased">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
             <button 
               onClick={onBack}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 shrink-0"
+              aria-label="Go back"
             >
-              <ChevronLeft size={24} />
+              <ChevronLeft size={22} />
             </button>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">{course.title}</h1>
-              <p className="text-xs text-slate-500">Course Overview & Learning Materials</p>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight truncate">{course.title}</h1>
+              <p className="text-xs text-slate-500 truncate">Course Overview &bull; {course.units?.length || 0} Units</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0 self-end sm:self-auto">
             <button
               onClick={handleShare}
-              className="flex items-center gap-2 bg-white border border-slate-200 text-slate-600 px-5 py-2 rounded-xl text-sm font-bold hover:bg-slate-50 transition-all shadow-sm"
+              className="flex items-center gap-1.5 sm:gap-2 bg-white border border-slate-200 text-slate-600 px-3.5 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-50 transition-all shadow-xs active:scale-95"
             >
-              <Share2 size={18} />
-              Share Course
+              <Share2 size={16} />
+              <span>Share</span>
             </button>
             <button
-              onClick={() => setShowAssessment(true)}
-              className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
+              onClick={() => {
+                setShowAssessment(true);
+                setMobileTab('content');
+              }}
+              className="flex items-center gap-1.5 sm:gap-2 bg-blue-600 text-white px-4 sm:px-5 py-2 rounded-xl text-xs sm:text-sm font-bold hover:bg-blue-700 transition-all shadow-md shadow-blue-100 active:scale-95"
             >
-              <CheckCircle size={18} />
-              Final Assessment
+              <CheckCircle size={16} />
+              <span>Final Exam</span>
             </button>
           </div>
         </div>
@@ -148,50 +153,83 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
         )}
       </AnimatePresence>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Sidebar: Subtopics List */}
-        <aside className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200">
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Course Content</h3>
-            <div className="space-y-2">
-              {course.units?.map((unit, uIdx) => (
-                <div key={uIdx} className="space-y-2">
-                  <p className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg inline-block mb-2">
-                    Unit {uIdx + 1}: {unit.title}
-                  </p>
-                  {unit.topics?.map((topic, tIdx) => (
-                    <div key={tIdx} className="space-y-1 ml-2">
-                      <p className="text-sm font-bold text-slate-700 mb-1">{topic.title}</p>
-                      {topic.subtopics?.map((sub, sIdx) => (
-                        <button
-                          key={sIdx}
-                          onDoubleClick={() => {
-                            setActiveSession({ topic: sub.title, subtopic: sub });
-                          }}
-                          onClick={() => {
-                            setSelectedSubtopic(sub);
-                            setShowAssessment(false);
-                          }}
-                          className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all flex items-center gap-3 ${
-                            selectedSubtopic?.title === sub.title
-                              ? 'bg-blue-600 text-white shadow-lg shadow-blue-100'
-                              : 'text-slate-600 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className={`w-2 h-2 rounded-full ${selectedSubtopic?.title === sub.title ? 'bg-white' : 'bg-blue-400'}`} />
-                          <span className="truncate">{sub.title}</span>
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </div>
-          </div>
-        </aside>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-8">
+        {/* Mobile View Switcher (< lg) */}
+        <div className="lg:hidden flex rounded-2xl bg-white p-1.5 border border-slate-200 shadow-xs mb-6">
+          <button
+            onClick={() => setMobileTab('syllabus')}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              mobileTab === 'syllabus'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <BookOpen size={15} />
+            <span>Syllabus & Lessons ({allSubtopics.length})</span>
+          </button>
+          <button
+            onClick={() => setMobileTab('content')}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+              mobileTab === 'content'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            <Presentation size={15} />
+            <span>{showAssessment ? 'Final Exam' : selectedSubtopic ? 'Lesson Details' : 'Overview'}</span>
+          </button>
+        </div>
 
-        {/* Main Content Area */}
-        <main className="lg:col-span-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+          {/* Sidebar: Subtopics List */}
+          <aside className={`space-y-6 lg:col-span-4 ${mobileTab === 'syllabus' ? 'block' : 'hidden lg:block'}`}>
+            <div className="bg-white rounded-3xl p-5 sm:p-6 shadow-sm border border-slate-200">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Course Syllabus</h3>
+                <span className="text-[11px] font-mono text-slate-500 font-bold bg-slate-100 px-2 py-0.5 rounded-md">
+                  {allSubtopics.length} Subtopics
+                </span>
+              </div>
+              <div className="space-y-3">
+                {course.units?.map((unit, uIdx) => (
+                  <div key={uIdx} className="space-y-2 pb-2 border-b border-slate-100 last:border-b-0 last:pb-0">
+                    <p className="text-xs font-bold text-blue-700 bg-blue-50/80 px-3 py-1.5 rounded-lg inline-block">
+                      Unit {uIdx + 1}: {unit.title}
+                    </p>
+                    {unit.topics?.map((topic, tIdx) => (
+                      <div key={tIdx} className="space-y-1 ml-1 sm:ml-2">
+                        <p className="text-xs font-bold text-slate-700 px-2 pt-1">{topic.title}</p>
+                        {topic.subtopics?.map((sub, sIdx) => (
+                          <button
+                            key={sIdx}
+                            onDoubleClick={() => {
+                              setActiveSession({ topic: sub.title, subtopic: sub });
+                            }}
+                            onClick={() => {
+                              setSelectedSubtopic(sub);
+                              setShowAssessment(false);
+                              setMobileTab('content');
+                            }}
+                            className={`w-full text-left px-3.5 py-2.5 rounded-xl text-xs sm:text-sm transition-all flex items-center gap-2.5 ${
+                              selectedSubtopic?.title === sub.title
+                                ? 'bg-blue-600 text-white shadow-md shadow-blue-100 font-bold'
+                                : 'text-slate-600 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className={`w-2 h-2 rounded-full shrink-0 ${selectedSubtopic?.title === sub.title ? 'bg-white' : 'bg-blue-500'}`} />
+                            <span className="truncate">{sub.title}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          {/* Main Content Area */}
+          <main className={`lg:col-span-8 ${mobileTab === 'content' ? 'block' : 'hidden lg:block'}`}>
           <AnimatePresence mode="wait">
             {showAssessment ? (
               <motion.div
@@ -384,6 +422,7 @@ export default function CourseView({ course, onBack, onSessionEnd }) {
           </AnimatePresence>
         </main>
       </div>
+    </div>
 
       <AnimatePresence>
         {assessmentStarted && (

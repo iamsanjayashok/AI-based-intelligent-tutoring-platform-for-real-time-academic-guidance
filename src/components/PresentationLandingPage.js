@@ -37,6 +37,7 @@ import {
   RefreshCw, 
   AlertCircle, 
   X, 
+  Menu,
   ChevronRight, 
   ChevronLeft,
   Presentation, 
@@ -859,7 +860,7 @@ function StackingCardWrapper({
     <div
       ref={containerRef}
       id={`stacking-card-${index}`}
-      className={`relative w-full ${isLast ? 'min-h-[560px] mb-16' : 'min-h-[580px] mb-[50vh]'}`}
+      className={`relative w-full ${isLast ? 'min-h-[460px] sm:min-h-[560px] mb-12 sm:mb-16' : 'min-h-[480px] sm:min-h-[580px] mb-[25vh] sm:mb-[45vh]'}`}
     >
       {id && <div id={id} className="absolute -top-28" />}
 
@@ -867,7 +868,7 @@ function StackingCardWrapper({
       <div 
         className="sticky w-full transition-[top] duration-150"
         style={{ 
-          top: `calc(5rem + ${index * 28}px)`,
+          top: `calc(clamp(3.8rem, 6vw, 5rem) + ${index * 20}px)`,
           zIndex
         }}
       >
@@ -954,6 +955,7 @@ export default function PresentationLandingPage({
 }) {
   // Navigation & Scroll state
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
   const [showTypographyDemo, setShowTypographyDemo] = useState(false);
 
@@ -1343,16 +1345,101 @@ export default function PresentationLandingPage({
                 <MagneticButton
                   id="landing-header-start-btn"
                   onClick={onOpenSignIn}
-                  className="px-5 py-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold tracking-wide shadow-md shadow-slate-900/15 transition-all"
+                  className="px-4 sm:px-5 py-2 rounded-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold tracking-wide shadow-md shadow-slate-900/15 transition-all"
                 >
                   <span>Get Started</span>
                   <ArrowRight size={14} />
                 </MagneticButton>
               </div>
             )}
+
+            {/* Mobile Hamburger Toggle Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-colors md:hidden"
+              aria-label="Toggle mobile menu"
+            >
+              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
           </div>
 
         </div>
+
+        {/* Mobile Dropdown Menu */}
+        <AnimatePresence>
+          {mobileMenuOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden bg-white/95 backdrop-blur-2xl border-b border-slate-200/80 px-5 py-4 space-y-3 shadow-xl overflow-hidden"
+            >
+              <div className="flex flex-col space-y-2 text-sm font-semibold text-slate-700">
+                <a 
+                  href="#voice-chamber" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-between"
+                >
+                  <span>Voice Engine</span>
+                  <ArrowRight size={14} className="text-slate-400" />
+                </a>
+                <a 
+                  href="#theatre-mode" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-between"
+                >
+                  <span>Slide Theatre</span>
+                  <ArrowRight size={14} className="text-slate-400" />
+                </a>
+                <a 
+                  href="#curriculum-architect" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-between"
+                >
+                  <span>Curriculum</span>
+                  <ArrowRight size={14} className="text-slate-400" />
+                </a>
+                <a 
+                  href="#rubric-evaluation" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-between"
+                >
+                  <span>Rubric Grading</span>
+                  <ArrowRight size={14} className="text-slate-400" />
+                </a>
+                <a 
+                  href="#interactive-timeline" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-between"
+                >
+                  <span>Progression</span>
+                  <ArrowRight size={14} className="text-slate-400" />
+                </a>
+                <a 
+                  href="#specifications" 
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-lg hover:bg-blue-50 hover:text-blue-600 transition-colors flex items-center justify-between"
+                >
+                  <span>Specifications</span>
+                  <ArrowRight size={14} className="text-slate-400" />
+                </a>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    setShowTypographyDemo(true);
+                  }}
+                  className="w-full text-left px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-mono font-bold flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-emerald-600" />
+                    RevealText Demo
+                  </span>
+                  <ArrowRight size={12} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </header>
 
       {/* =========================================================================
@@ -1683,9 +1770,9 @@ export default function PresentationLandingPage({
                   </div>
 
                   {/* Persona Selector Tabs */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <span className="text-xs font-bold text-slate-500">Voice Model:</span>
-                    <div className="flex gap-1 p-1 rounded-xl bg-slate-100/90 border border-slate-200">
+                    <div className="flex flex-wrap gap-1 p-1 rounded-xl bg-slate-100/90 border border-slate-200">
                       {['Aoede', 'Kore', 'Fenrir', 'Puck', 'Charon'].map((v) => (
                         <button
                           key={v}

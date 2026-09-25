@@ -110,6 +110,7 @@ export default function TutorChat({ topic, subtopic, courseId, courseTitle, onEn
   const [debugLogs, setDebugLogs] = useState([]);
   const [showControls, setShowControls] = useState(false);
   const [isChatVisible, setIsChatVisible] = useState(true);
+  const [mobileActiveView, setMobileActiveView] = useState('slides'); // 'slides' | 'chat'
   const [aiSettings, setAiSettings] = useState({
     voice: 'Kore',
     language: 'English',
@@ -1456,120 +1457,139 @@ ${userMsg}
 
   return (
     <div className="fixed inset-0 bg-white z-[60] flex flex-col">
-      <header className="p-4 border-b flex items-center justify-between bg-slate-50">
-        <div className="flex items-center gap-3">
-          <button onClick={() => { stopLiveSession(); onEnd(); }} className="p-2 hover:bg-slate-200 rounded-full">
-            <ChevronLeft size={20} />
-          </button>
-          <div>
-            <h3 className="font-bold text-slate-900">{topic}</h3>
-            <p className="text-xs text-slate-500">{courseTitle}</p>
+      <header className="px-3 sm:px-4 py-2.5 sm:py-3.5 border-b bg-slate-50 flex flex-col gap-2 shrink-0 shadow-2xs">
+        {/* Top Row: Navigation Context + Main Action Buttons */}
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <button 
+              onClick={() => { stopLiveSession(); onEnd(); }} 
+              className="p-1.5 sm:p-2 hover:bg-slate-200 rounded-full text-slate-600 shrink-0 transition-colors"
+              aria-label="Exit session"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="min-w-0">
+              <h3 className="font-bold text-xs sm:text-sm text-slate-900 truncate max-w-[130px] sm:max-w-xs">{topic}</h3>
+              <p className="text-[10px] sm:text-xs text-slate-500 truncate">{courseTitle}</p>
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 relative">
-          <button
-            id="toggle-chat-visibility-btn"
-            onClick={() => setIsChatVisible(!isChatVisible)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm border ${
-              isChatVisible 
-                ? 'bg-blue-50 border-blue-200 text-blue-600' 
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <MessageSquare size={18} />
-            {isChatVisible ? 'Hide Chat' : 'Show Chat'}
-          </button>
 
-          {/* Master AI Tutor Controller Button */}
-          <button
-            id="master-ai-tutor-controller-btn"
-            onClick={handleToggleLiveTutor}
-            disabled={isConnectingLive}
-            title={isLive ? "Turn Off Live AI Tutor" : "Turn On Live AI Tutor"}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm border ${
-              isLive 
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 ring-2 ring-emerald-300/30' 
-                : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100'
-            } disabled:opacity-60 disabled:cursor-not-allowed`}
-          >
-            {isConnectingLive ? (
-              <>
-                <Loader2 size={16} className="animate-spin text-blue-600" />
-                <span>Connecting...</span>
-              </>
-            ) : isLive ? (
-              <>
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-                </span>
-                <Power size={15} className="text-emerald-600" />
-                <span>AI Tutor: ON</span>
-              </>
-            ) : (
-              <>
-                <span className="h-2.5 w-2.5 rounded-full bg-slate-400"></span>
-                <Power size={15} className="text-slate-400" />
-                <span>AI Tutor: OFF</span>
-              </>
-            )}
-          </button>
-
-          {/* Master Mic Controller Button (Directly to the right of AI Tutor button) */}
-          <button
-            id="master-mic-controller-btn"
-            onClick={handleMicToggle}
-            title={isMicOn ? (isLive ? "Turn OFF mic to let AI Tutor respond" : "Turn OFF mic to send voice question") : (isLive ? "Turn ON mic to speak to AI Tutor" : "Turn ON mic to speak question")}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm border ${
-              isMicOn 
-                ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100 ring-2 ring-red-300/30' 
-                : 'bg-slate-50 border-slate-300 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            {isMicOn ? (
-              <>
-                <span className="relative flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-                </span>
-                <Mic size={15} className="text-red-600" />
-                <span>Mic: ON</span>
-                <span className="text-[11px] font-medium text-red-500 hidden sm:inline">
-                  {isLive ? "(Turn off to respond)" : "(Turn off to send)"}
-                </span>
-              </>
-            ) : (
-              <>
-                <span className="h-2.5 w-2.5 rounded-full bg-slate-400"></span>
-                <MicOff size={15} className="text-slate-400" />
-                <span>Mic: OFF</span>
-                <span className="text-[11px] font-medium text-slate-400 hidden sm:inline">(Click to speak)</span>
-              </>
-            )}
-          </button>
-
-          {/* Hide / Show Controls Button */}
-          <button
-            id="toggle-hide-controls-btn"
-            onClick={() => setShowControls(!showControls)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all shadow-sm border ${
-              showControls
-                ? 'bg-slate-200 border-slate-300 text-slate-800'
-                : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Settings size={18} />
-            <span>{showControls ? 'Hide Controls' : 'Controls'}</span>
-          </button>
-
-          <AnimatePresence>
-            {showControls && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute top-full right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 p-6 space-y-6"
+          <div className="flex items-center gap-1.5 sm:gap-2 relative shrink-0">
+            {/* Desktop Only Chat Toggle */}
+            <div className="hidden md:flex items-center gap-2">
+              <button
+                id="toggle-chat-visibility-btn"
+                onClick={() => setIsChatVisible(!isChatVisible)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs border ${
+                  isChatVisible 
+                    ? 'bg-blue-50 border-blue-200 text-blue-600' 
+                    : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+                }`}
               >
+                <MessageSquare size={14} />
+                <span>{isChatVisible ? 'Hide Chat' : 'Show Chat'}</span>
+              </button>
+            </div>
+
+            {/* Master AI Tutor Controller Button */}
+            <button
+              id="master-ai-tutor-controller-btn"
+              onClick={handleToggleLiveTutor}
+              disabled={isConnectingLive}
+              title={isLive ? "Turn Off Live AI Tutor" : "Turn On Live AI Tutor"}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs border ${
+                isLive 
+                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 ring-2 ring-emerald-300/30' 
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+              } disabled:opacity-60 disabled:cursor-not-allowed`}
+            >
+              {isConnectingLive ? (
+                <>
+                  <Loader2 size={13} className="animate-spin text-blue-600" />
+                  <span className="hidden sm:inline">Connecting...</span>
+                </>
+              ) : isLive ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                  <Power size={13} className="text-emerald-600" />
+                  <span className="hidden sm:inline">AI Tutor: ON</span>
+                  <span className="sm:hidden text-[10px]">Tutor ON</span>
+                </>
+              ) : (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-slate-400"></span>
+                  <Power size={13} className="text-slate-400" />
+                  <span className="hidden sm:inline">AI Tutor: OFF</span>
+                  <span className="sm:hidden text-[10px]">Tutor OFF</span>
+                </>
+              )}
+            </button>
+
+            {/* Master Mic Controller Button */}
+            <button
+              id="master-mic-controller-btn"
+              onClick={handleMicToggle}
+              title={isMicOn ? (isLive ? "Turn OFF mic to let AI Tutor respond" : "Turn OFF mic to send voice question") : (isLive ? "Turn ON mic to speak to AI Tutor" : "Turn ON mic to speak question")}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs border ${
+                isMicOn 
+                  ? 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100 ring-2 ring-red-300/30' 
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              {isMicOn ? (
+                <>
+                  <span className="relative flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                  </span>
+                  <Mic size={13} className="text-red-600" />
+                  <span className="hidden sm:inline">Mic: ON</span>
+                  <span className="sm:hidden text-[10px]">Mic ON</span>
+                </>
+              ) : (
+                <>
+                  <span className="h-2 w-2 rounded-full bg-slate-400"></span>
+                  <MicOff size={13} className="text-slate-400" />
+                  <span className="hidden sm:inline">Mic: OFF</span>
+                  <span className="sm:hidden text-[10px]">Mic OFF</span>
+                </>
+              )}
+            </button>
+
+            {/* Hide / Show Controls Button */}
+            <button
+              id="toggle-hide-controls-btn"
+              onClick={() => setShowControls(!showControls)}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs border ${
+                showControls
+                  ? 'bg-slate-200 border-slate-300 text-slate-800'
+                  : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100'
+              }`}
+              title="Voice & Language Controls"
+            >
+              <Settings size={15} />
+              <span className="hidden lg:inline ml-1">{showControls ? 'Hide' : 'Controls'}</span>
+            </button>
+
+            <button
+              onClick={() => setShowEndConfirm(true)}
+              className="px-2.5 sm:px-3.5 py-1.5 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-all shadow-xs shrink-0 active:scale-95"
+            >
+              <span className="hidden sm:inline">Finish Session</span>
+              <span className="sm:hidden">Finish</span>
+            </button>
+
+            <AnimatePresence>
+              {showControls && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute top-full right-0 mt-2 w-80 max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-100 z-50 p-5 sm:p-6 space-y-5"
+                >
                 {/* Master Tutor Quick Switch in Controls Panel */}
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -1733,15 +1753,37 @@ ${userMsg}
               </motion.div>
             )}
           </AnimatePresence>
+        </div>
+      </div>
 
+      {/* Mobile View Switcher Row (Only visible on screens < md) */}
+      <div className="md:hidden flex items-center justify-between gap-2 px-1 pt-1 border-t border-slate-200/60">
+        <div className="flex bg-slate-200/70 p-0.5 rounded-xl w-full">
           <button
-            onClick={() => setShowEndConfirm(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-bold hover:bg-blue-700 transition-all shadow-md"
+            onClick={() => setMobileActiveView('slides')}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              mobileActiveView === 'slides'
+                ? 'bg-white text-blue-600 shadow-2xs'
+                : 'text-slate-600'
+            }`}
           >
-            Finish Session
+            <Presentation size={13} />
+            <span>Slide Deck</span>
+          </button>
+          <button
+            onClick={() => setMobileActiveView('chat')}
+            className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              mobileActiveView === 'chat'
+                ? 'bg-white text-blue-600 shadow-2xs'
+                : 'text-slate-600'
+            }`}
+          >
+            <MessageSquare size={13} />
+            <span>AI Tutor Chat {messages.length > 0 && `(${messages.length})`}</span>
           </button>
         </div>
-      </header>
+      </div>
+    </header>
 
       <div className="flex-1 flex overflow-hidden relative">
         {/* Pre-session Start Overlay */}
@@ -1856,7 +1898,10 @@ ${userMsg}
           )}
         </AnimatePresence>
 
-        <div className="flex-1 min-w-0 border-r border-slate-800 bg-slate-900 flex flex-col transition-all duration-300 overflow-hidden">
+        {/* Slide Viewer (Full on mobile if mobileActiveView === 'slides', side-by-side on desktop) */}
+        <div className={`flex-1 min-w-0 border-r border-slate-800 bg-slate-900 flex-col transition-all duration-300 overflow-hidden ${
+          mobileActiveView === 'slides' ? 'flex' : 'hidden md:flex'
+        }`}>
           <SubtopicSlideViewer 
             slides={subtopic?.slides || []}
             currentSlideIndex={currentSlideIndex}
@@ -1871,8 +1916,12 @@ ${userMsg}
           />
         </div>
 
-        {/* Right Side: Live AI Tutor Chat Box */}
-        <div className={`${isChatVisible ? 'w-full md:w-[380px] lg:w-[420px] xl:w-[460px]' : 'hidden'} h-full transition-all duration-300 relative shrink-0`}>
+        {/* Right Side: Live AI Tutor Chat Box (Full on mobile if mobileActiveView === 'chat', side-by-side on desktop) */}
+        <div className={`${
+          isChatVisible 
+            ? (mobileActiveView === 'chat' ? 'flex flex-1 md:flex-initial' : 'hidden md:block') + ' w-full md:w-[380px] lg:w-[420px] xl:w-[460px]' 
+            : 'hidden'
+        } h-full transition-all duration-300 relative shrink-0`}>
           <LiveTutorChatBox 
             messages={messages}
             input={input}

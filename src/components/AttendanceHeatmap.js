@@ -100,6 +100,7 @@ export default function AttendanceHeatmap({ attendanceLog = {} }) {
           <div className="text-right">
             <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">Active Days in Period</span>
             <span className="text-slate-900 font-bold font-mono text-sm">{totalActiveDaysLogged} days</span>
+            <span className="text-[10px] text-blue-600 font-semibold sm:hidden block mt-0.5">Swipe &rarr; for 28 weeks</span>
           </div>
         </div>
       </div>

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Book, Layout as DashboardIcon, BarChart2, User, PlusCircle, Settings, LogOut, Key, Loader2, AlertCircle, CheckCircle, Presentation } from 'lucide-react';
+import { Book, Layout as DashboardIcon, BarChart2, User, PlusCircle, Settings, LogOut, Key, Loader2, AlertCircle, CheckCircle, Presentation, X } from 'lucide-react';
 import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 import { motion, AnimatePresence } from 'motion/react';
 import { joinCourseByCode } from '../services/sharingService';
 
-export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLanding }) {
+export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLanding, isOpen, onClose }) {
   const [showCodeModal, setShowCodeModal] = useState(false);
   const [courseCode, setCourseCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
@@ -19,6 +19,21 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLa
   ];
 
   const handleLogout = () => signOut(auth);
+
+  const handleItemClick = (tabId) => {
+    setActiveTab(tabId);
+    if (onClose) onClose();
+  };
+
+  const handleCreateNewClick = () => {
+    onCreateNew();
+    if (onClose) onClose();
+  };
+
+  const handleGoToLandingClick = () => {
+    if (onGoToLanding) onGoToLanding();
+    if (onClose) onClose();
+  };
 
   const handleJoinCourse = async (e) => {
     e.preventDefault();
@@ -34,6 +49,7 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLa
         setCourseCode('');
         setJoinStatus({ type: null, message: '' });
         setActiveTab('courses');
+        if (onClose) onClose();
       }, 2000);
     } catch (error) {
       setJoinStatus({ type: 'error', message: error.message || 'Failed to join course.' });
@@ -43,50 +59,79 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLa
   };
 
   return (
-    <div className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0">
-      <div className="p-6">
-        <div className="flex items-center gap-3 mb-8">
-          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
-            <Book size={20} />
-          </div>
-          <span className="font-bold text-xl text-slate-900 tracking-tight">AI Tutor</span>
-        </div>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-40 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
 
-        <nav className="space-y-1">
-          {menuItems.map((item) => (
+      <aside 
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 sm:w-64 bg-white border-r border-slate-200 flex flex-col h-screen transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:h-screen lg:sticky lg:top-0 ${
+          isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
+        }`}
+      >
+        <div className="p-5 sm:p-6 overflow-y-auto flex-1">
+          <div className="flex items-center justify-between gap-3 mb-6 sm:mb-8">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200 shrink-0">
+                <Book size={20} />
+              </div>
+              <span className="font-bold text-xl text-slate-900 tracking-tight">AI Tutor</span>
+            </div>
+
+            {/* Mobile Close Button */}
             <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                activeTab === item.id
-                  ? 'bg-blue-50 text-blue-600'
-                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
-              }`}
+              onClick={onClose}
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors lg:hidden"
+              aria-label="Close menu"
             >
-              <item.icon size={18} />
-              {item.label}
+              <X size={20} />
             </button>
-          ))}
-        </nav>
+          </div>
 
-        <div className="mt-8 pt-8 border-t border-slate-100 space-y-3">
-          <button
-            onClick={onCreateNew}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md shadow-blue-100"
-          >
-            <PlusCircle size={18} />
-            New Course
-          </button>
-          
-          <button
-            onClick={() => setShowCodeModal(true)}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all"
-          >
-            <Key size={18} />
-            Enter Code
-          </button>
+          <nav className="space-y-1">
+            {menuItems.map((item) => (
+              <button
+                key={item.id}
+                onClick={() => handleItemClick(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === item.id
+                    ? 'bg-blue-50 text-blue-600 font-bold'
+                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
+                }`}
+              >
+                <item.icon size={18} />
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="mt-6 pt-6 border-t border-slate-100 space-y-2.5">
+            <button
+              onClick={handleCreateNewClick}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-md shadow-blue-100 active:scale-98"
+            >
+              <PlusCircle size={18} />
+              <span>New Course</span>
+            </button>
+            
+            <button
+              onClick={() => setShowCodeModal(true)}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 transition-all active:scale-98"
+            >
+              <Key size={18} />
+              <span>Enter Code</span>
+            </button>
+          </div>
         </div>
-      </div>
 
       <AnimatePresence>
         {showCodeModal && (
@@ -180,6 +225,7 @@ export default function Sidebar({ activeTab, setActiveTab, onCreateNew, onGoToLa
           Logout
         </button>
       </div>
-    </div>
+    </aside>
+    </>
   );
 }
