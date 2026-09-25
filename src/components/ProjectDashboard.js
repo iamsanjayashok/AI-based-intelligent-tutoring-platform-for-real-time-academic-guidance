@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Sparkles, 
@@ -56,6 +56,15 @@ export default function ProjectDashboard({
   const [isJoining, setIsJoining] = useState(false);
   const [joinStatus, setJoinStatus] = useState({ type: null, message: '' });
   const [openFaq, setOpenFaq] = useState(0);
+
+  // Ensure scroll is at the top when entering the dashboard
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (typeof document !== 'undefined') {
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    }
+  }, []);
 
   const handleJoinCourse = async (e) => {
     e.preventDefault();

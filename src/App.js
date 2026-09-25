@@ -154,6 +154,16 @@ function SignInModal({
   );
 }
 
+export const resetScrollPosition = () => {
+  if (typeof window !== 'undefined') {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }
+  if (typeof document !== 'undefined') {
+    if (document.documentElement) document.documentElement.scrollTop = 0;
+    if (document.body) document.body.scrollTop = 0;
+  }
+};
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -163,6 +173,21 @@ export default function App() {
   const [showCreator, setShowCreator] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [postSessionData, setPostSessionData] = useState(null);
+
+  // Automatically reset scroll position to top whenever switching views or tabs
+  useEffect(() => {
+    resetScrollPosition();
+    const frameId = requestAnimationFrame(() => {
+      resetScrollPosition();
+    });
+    const timer = setTimeout(() => {
+      resetScrollPosition();
+    }, 60);
+    return () => {
+      cancelAnimationFrame(frameId);
+      clearTimeout(timer);
+    };
+  }, [currentView, activeTab, selectedCourse, postSessionData, showCreator]);
 
   const handleRetake = async (courseId) => {
     try {
@@ -207,7 +232,9 @@ export default function App() {
       const result = await signInWithPopup(auth, provider);
       if (result?.user) {
         setShowSignInModal(false);
+        resetScrollPosition();
         setCurrentView('app');
+        setActiveTab('dashboard');
       }
     } catch (error) {
       const code = error?.code || '';
@@ -255,7 +282,9 @@ export default function App() {
       const result = await signInAnonymously(auth);
       if (result?.user) {
         setShowSignInModal(false);
+        resetScrollPosition();
         setCurrentView('app');
+        setActiveTab('dashboard');
       }
     } catch (error) {
       console.error("Guest login failed:", error);
@@ -279,6 +308,7 @@ export default function App() {
         <PresentationLandingPage 
           user={user}
           onGoToDashboard={() => {
+            resetScrollPosition();
             if (user) {
               setCurrentView('app');
               setActiveTab('dashboard');

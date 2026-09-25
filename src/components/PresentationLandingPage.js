@@ -543,43 +543,48 @@ function InteractiveTimeline() {
   const steps = [
     {
       step: 1,
-      tag: "STEP 01",
-      title: "Multimodal Syllabus Synthesis",
-      summary: "Upload any textbook PDF, paste a YouTube lecture link, or type a topic prompt. Gemini generates a 10-week structured curriculum organized into Units and Subtopics.",
-      duration: "4.2s runtime",
-      pill: "Gemini 2.5 Pro"
+      tag: "01 — Understand",
+      label: "Understand",
+      title: "Multimodal Content Analysis",
+      summary: "Upload PDFs, presentations, or YouTube lectures. The AI extracts and understands the learning content.",
+      duration: "Material Ingestion",
+      pill: "PDF & YouTube"
     },
     {
       step: 2,
-      tag: "STEP 02",
-      title: "Dual-Coding Slide Generation",
-      summary: "For each subtopic, the visual engine crafts a 4-8 slide deck featuring mathematical formulas, architectural diagrams, and concise retention summaries.",
-      duration: "Instant cache",
-      pill: "SVG & LaTeX Decks"
+      tag: "02 — Structure",
+      label: "Structure",
+      title: "Intelligent Curriculum Design",
+      summary: "Content is intelligently divided into topics, subtopics, and well-paced learning sessions.",
+      duration: "Paced Sessions",
+      pill: "Curriculum Design"
     },
     {
       step: 3,
-      tag: "STEP 03",
-      title: "Full-Duplex Socratic Voice Lecture",
-      summary: "The AI tutor walks through the slides verbally via 16kHz PCM audio stream. You can interrupt mid-sentence to ask for analogies, real-world examples, or language translations.",
-      duration: "<380ms reflex",
-      pill: "WebSocket Audio"
+      tag: "03 — Teach",
+      label: "Teach",
+      title: "Real-Time AI Tutoring",
+      summary: "Learn through interactive conversational sessions where the AI explains concepts and responds to questions in real time.",
+      duration: "Live Audio & Slides",
+      pill: "Conversational AI"
     },
     {
       step: 4,
-      tag: "STEP 04",
-      title: "Subjective Diagnostic Testing",
-      summary: "Rather than simplistic multiple choice, you complete structured open-ended essays, mathematical derivations, or voice-recorded responses.",
-      duration: "Adaptive difficulty",
-      pill: "Semantic Rubrics"
+      tag: "04 — Practice",
+      label: "Practice",
+      title: "Interactive Assessment",
+      summary: "Test your understanding with automatically generated quizzes and assessments tailored to the session.",
+      duration: "Adaptive Testing",
+      pill: "Session Quizzes"
     },
     {
       step: 5,
-      tag: "STEP 05",
-      title: "Targeted Weakness Remediation",
-      summary: "Detailed diagnostic feedback isolates exact misconceptions (e.g. confusing variance vs bias) and generates targeted corrective follow-up drills.",
-      duration: "Continuous loop",
-      pill: "Mastery Progression"
+      tag: "05 — Evaluate",
+      label: "Evaluate",
+      title: "Performance & Learning Insights",
+      summary: "AI evaluates responses, identifies knowledge gaps, and generates notes and insights to guide what to learn next.",
+      duration: "Continuous Feedback",
+      pill: "Learning Insights"
     }
   ];
 
@@ -604,7 +609,7 @@ function InteractiveTimeline() {
               }`}>
                 {s.step}
               </span>
-              <span>{s.tag}</span>
+              <span>{s.label}</span>
             </button>
           );
         })}
@@ -833,26 +838,6 @@ function StackingCardWrapper({
     };
   }, [index, total]);
 
-  const scrollToNextCard = () => {
-    const nextEl = document.getElementById(`stacking-card-${index + 1}`);
-    if (nextEl) {
-      const isMobile = window.innerWidth < 640;
-      const nextStickyTop = isMobile ? 68 + (index + 1) * 22 : 80 + (index + 1) * 28;
-      const top = nextEl.getBoundingClientRect().top + window.scrollY - nextStickyTop - 10;
-      window.scrollTo({ top, behavior: 'smooth' });
-    }
-  };
-
-  const scrollToPrevCard = () => {
-    const prevEl = document.getElementById(`stacking-card-${index - 1}`);
-    if (prevEl) {
-      const isMobile = window.innerWidth < 640;
-      const prevStickyTop = isMobile ? 68 + (index - 1) * 22 : 80 + (index - 1) * 28;
-      const top = prevEl.getBoundingClientRect().top + window.scrollY - prevStickyTop - 10;
-      window.scrollTo({ top, behavior: 'smooth' });
-    }
-  };
-
   // Higher index cards have higher zIndex so they physically stack ON TOP of earlier cards
   const zIndex = 20 + index * 10;
 
@@ -860,7 +845,7 @@ function StackingCardWrapper({
     <div
       ref={containerRef}
       id={`stacking-card-${index}`}
-      className={`relative w-full ${isLast ? 'min-h-[460px] sm:min-h-[560px] mb-12 sm:mb-16' : 'min-h-[480px] sm:min-h-[580px] mb-[25vh] sm:mb-[45vh]'}`}
+      className={`relative w-full ${isLast ? 'mb-10 sm:mb-14' : 'mb-6 sm:mb-8'}`}
     >
       {id && <div id={id} className="absolute -top-28" />}
 
@@ -880,50 +865,6 @@ function StackingCardWrapper({
           }}
           className="w-full will-change-transform relative"
         >
-          {/* Card Top Meta Tab (Remains visible as subsequent cards stack upon it) */}
-          <div className="flex flex-wrap items-center justify-between gap-2 pb-2.5 px-2">
-            <div className="flex items-center gap-2.5">
-              <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-bold uppercase tracking-wider bg-blue-100/90 text-blue-900 border border-blue-200/90 shadow-2xs backdrop-blur-md">
-                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                <span>Layer {number} of 0{total} &bull; {badge}</span>
-              </span>
-              <span className="text-sm font-bold text-slate-900 hidden md:inline drop-shadow-2xs">
-                {title} <span className="text-slate-500 font-normal">&bull; {subtitle}</span>
-              </span>
-            </div>
-
-            {/* Smooth Scroll Navigation Controls */}
-            <div className="flex items-center gap-2 text-xs font-mono font-medium">
-              {index > 0 && (
-                <button
-                  onClick={scrollToPrevCard}
-                  className="flex items-center gap-1.5 bg-white/95 hover:bg-slate-50 border border-slate-200/90 text-slate-700 hover:text-slate-950 px-2.5 py-1 rounded-xl shadow-2xs backdrop-blur-md transition-all duration-150 hover:scale-105 active:scale-95"
-                  title="Scroll to previous layer"
-                >
-                  <span className="text-blue-600 font-bold">&uarr;</span>
-                  <span>Unstack Layer 0{index}</span>
-                </button>
-              )}
-
-              {!isLast ? (
-                <button
-                  onClick={scrollToNextCard}
-                  className="flex items-center gap-1.5 bg-white/95 hover:bg-blue-50/90 border border-blue-200/90 text-slate-800 hover:text-blue-950 px-3 py-1 rounded-xl shadow-2xs backdrop-blur-md transition-all duration-150 hover:scale-105 active:scale-95 group"
-                  title="Smoothly scroll and stack next card on top"
-                >
-                  <StackedCardsDeckIcon className="w-3.5 h-3.5 text-blue-600 group-hover:scale-110 transition-transform" />
-                  <span>Stack Layer 0{index + 2} on Top</span>
-                  <span className="text-blue-600 font-bold group-hover:translate-y-0.5 transition-transform">&darr;</span>
-                </button>
-              ) : (
-                <span className="text-emerald-700 font-bold flex items-center gap-1.5 bg-emerald-50/95 border border-emerald-200/90 px-3 py-1 rounded-xl shadow-2xs backdrop-blur-md">
-                  <CheckCircle2 size={13} className="text-emerald-600" />
-                  <span>Full Stack Complete (4/4 Layers)</span>
-                </span>
-              )}
-            </div>
-          </div>
-
           {/* Main Card Body Container (Heavy elevation shadow casting downward onto underlying cards) */}
           <div className="relative shadow-[0_-12px_30px_-6px_rgba(15,23,42,0.12),0_25px_60px_-15px_rgba(15,23,42,0.22)] rounded-3xl bg-white border border-slate-200/95 overflow-hidden transition-shadow duration-200">
             {/* Soft Ambient Depth Overlay for Underlying Cards */}
@@ -1255,11 +1196,7 @@ export default function PresentationLandingPage({
       {/* =========================================================================
           1. APPLE-STYLE TRANSLUCENT GLASS NAVIGATION HEADER
           ========================================================================= */}
-      <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
-        scrolled 
-          ? 'bg-white/75 backdrop-blur-2xl border-b border-white/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)] py-3.5' 
-          : 'bg-transparent border-b border-slate-200/40 py-5'
-      }`}>
+      <header className="fixed top-0 inset-x-0 z-50 bg-white/85 backdrop-blur-2xl border-b border-slate-200/80 shadow-[0_4px_30px_rgba(0,0,0,0.03)] py-3.5 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           
           {/* Logo Brand with Soft Neumorphic Glow */}
@@ -1275,9 +1212,6 @@ export default function PresentationLandingPage({
                 <span className="font-serif font-bold text-xl tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors">
                   AI Tutor
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold tracking-wider uppercase bg-blue-50 text-blue-700 border border-blue-200/70">
-                  Multimodal
-                </span>
               </div>
             </div>
           </div>
@@ -1290,13 +1224,6 @@ export default function PresentationLandingPage({
             <a href="#rubric-evaluation" className="hover:text-blue-600 transition-colors">Rubric Grading</a>
             <a href="#interactive-timeline" className="hover:text-blue-600 transition-colors">Progression</a>
             <a href="#specifications" className="hover:text-blue-600 transition-colors">Specifications</a>
-            <button 
-              onClick={() => setShowTypographyDemo(true)}
-              className="px-2.5 py-1 rounded-full text-xs font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 hover:bg-emerald-100 transition-colors flex items-center gap-1"
-            >
-              <Sparkles size={11} className="text-emerald-600" />
-              <span>RevealText Demo</span>
-            </button>
           </nav>
 
           {/* User Sign-In / Dashboard CTA */}
@@ -1423,19 +1350,6 @@ export default function PresentationLandingPage({
                   <span>Specifications</span>
                   <ArrowRight size={14} className="text-slate-400" />
                 </a>
-                <button
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    setShowTypographyDemo(true);
-                  }}
-                  className="w-full text-left px-3 py-2 rounded-lg bg-emerald-50 text-emerald-800 text-xs font-mono font-bold flex items-center justify-between"
-                >
-                  <span className="flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-emerald-600" />
-                    RevealText Demo
-                  </span>
-                  <ArrowRight size={12} />
-                </button>
               </div>
             </motion.div>
           )}
@@ -1451,19 +1365,6 @@ export default function PresentationLandingPage({
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-center">
             {/* Left Column: Keynote Typography and Controls */}
             <div className="lg:col-span-7 text-center lg:text-left space-y-8">
-              {/* Eyebrow Hardware Pill with Animated Glow */}
-              <motion.div 
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6 }}
-                className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/80 border border-white shadow-[0_4px_20px_rgba(37,99,235,0.08)] backdrop-blur-xl text-blue-700 text-xs font-bold tracking-wider uppercase"
-              >
-                <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-                <span>Gemini Live Multimodal Voice Classroom</span>
-                <span className="text-slate-300">&bull;</span>
-                <span className="text-slate-500 lowercase">sub-400ms reflex</span>
-              </motion.div>
-
               {/* Grand Keynote Display Heading with Iridescent Gradient Text */}
               <div className="space-y-6">
                 <RevealText
@@ -1532,14 +1433,6 @@ export default function PresentationLandingPage({
                     <ArrowRight size={17} />
                   </MagneticButton>
                 )}
-
-                <a
-                  href="#voice-chamber"
-                  className="w-full sm:w-auto px-8 py-4 rounded-full bg-white/80 hover:bg-white text-slate-700 hover:text-slate-950 font-bold text-sm tracking-wide border border-slate-200/90 shadow-sm transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-md flex items-center justify-center gap-2.5 backdrop-blur-xl"
-                >
-                  <Play size={15} className="fill-blue-600 text-blue-600" />
-                  <span>Explore Interactive Sandbox</span>
-                </a>
               </motion.div>
             </div>
 
@@ -1548,7 +1441,7 @@ export default function PresentationLandingPage({
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.25 }}
-              className="lg:col-span-5 flex items-center justify-center relative w-full overflow-visible"
+              className="lg:col-span-5 flex items-center justify-center relative w-full overflow-visible pointer-events-none md:pointer-events-auto"
             >
               <Interactive3DObject className="w-full max-w-[620px] h-[450px] sm:h-[520px] lg:h-[580px]" />
             </motion.div>
@@ -1685,7 +1578,7 @@ export default function PresentationLandingPage({
                   color: '#020617',
                   lineHeight: 1.15
                 }}
-                text="Engineered for deep comprehension. Four synergistic systems stacked one upon another."
+                text="Engineered for deeper comprehension. Four intelligent layers working as one."
               />
               <RevealText
                 as="p"
@@ -1703,7 +1596,7 @@ export default function PresentationLandingPage({
                   color: '#475569',
                   lineHeight: 1.6
                 }}
-                text="Scroll smoothly to watch each foundational engine stack directly upon the previous layer. From raw audio processing to synchronized slide projection, curriculum decomposition, and multidimensional rubric grading—each system rests physically on top of the stack as you explore."
+                text="From learning-material analysis to curriculum structuring, real-time conversational tutoring, and intelligent assessment—each layer builds upon the previous to create a complete AI-powered tutoring experience."
               />
             </div>
 
@@ -1908,14 +1801,7 @@ export default function PresentationLandingPage({
             >
               <TiltSpotlightCard className="overflow-hidden">
                 {/* Theatre Control Bar */}
-                <div className="px-6 py-4 bg-slate-50/90 border-b border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="px-2.5 py-0.5 rounded-md bg-blue-100 text-blue-800 font-mono text-xs font-bold">
-                      Deck: Transformers &amp; Attention
-                    </span>
-                    <span className="text-xs text-slate-500 hidden sm:inline">&bull; 4 Concept Slides</span>
-                  </div>
-
+                <div className="px-6 py-4 bg-slate-50/90 border-b border-slate-200 flex items-center justify-end">
                   {/* Theater Navigation Controls */}
                   <div className="flex items-center gap-2">
                     <button
@@ -2322,8 +2208,8 @@ export default function PresentationLandingPage({
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 space-y-14">
           
           <div className="max-w-3xl space-y-3">
-            <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-purple-100 text-purple-800 border border-purple-200">
-              Pedagogical Engine
+            <span className="px-3.5 py-1 rounded-full text-xs font-mono font-bold tracking-widest uppercase bg-blue-100 text-blue-800 border border-blue-200">
+              5 Steps
             </span>
             <RevealText
               as="h2"
@@ -2341,7 +2227,7 @@ export default function PresentationLandingPage({
                 color: '#020617',
                 lineHeight: 1.15
               }}
-              text="The 5-Stage Learning Loop. Engineered around Bloom's Cognitive Taxonomy."
+              text="Engineered for Intelligent Learning. Built to Guide, Teach & Transform."
             />
             <RevealText
               as="p"
@@ -2355,11 +2241,11 @@ export default function PresentationLandingPage({
                 textAlign: 'left',
                 marginLeft: 0,
                 marginRight: 0,
-                maxWidth: '42rem',
+                maxWidth: '48rem',
                 color: '#475569',
                 lineHeight: 1.6
               }}
-              text="Explore how every learning milestone systematically elevates comprehension from surface-level memorization to doctoral-level synthesis."
+              text="A 5-stage AI learning journey that turns raw study material into structured lessons, real-time tutoring, active practice, and measurable understanding."
             />
           </div>
 

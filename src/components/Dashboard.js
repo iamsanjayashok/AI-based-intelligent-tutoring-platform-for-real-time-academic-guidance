@@ -31,6 +31,11 @@ export default function Dashboard({ onSelectCourse, onCreateNew }) {
   };
 
   useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (typeof document !== 'undefined') {
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    }
     const user = auth.currentUser;
     if (!user) return;
 

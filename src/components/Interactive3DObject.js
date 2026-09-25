@@ -177,8 +177,10 @@ export default function Interactive3DObject({ className = '' }) {
 
     let clock = new THREE.Clock();
 
-    // Trigger 360 rotation whenever user interacts
-    const handlePointerDown = () => {
+    // Trigger 360 rotation on user interaction (only on desktop/pointer, uninteractable on mobile)
+    const handlePointerDown = (e) => {
+      if (typeof window !== 'undefined' && window.innerWidth < 768) return;
+      if (e && e.pointerType === 'touch') return;
       setIsInteracting(true);
       trigger360Spin();
     };
@@ -261,11 +263,11 @@ export default function Interactive3DObject({ className = '' }) {
   }, []);
 
   return (
-    <div className={`relative flex flex-col items-center justify-center ${className}`}>
+    <div className={`relative flex flex-col items-center justify-center pointer-events-none md:pointer-events-auto ${className}`}>
       {/* 3D WebGL Canvas Viewport */}
       <div
         ref={containerRef}
-        className={`w-full h-full relative select-none touch-none cursor-pointer transition-transform duration-300 ${
+        className={`w-full h-full relative select-none pointer-events-none md:pointer-events-auto touch-auto md:touch-none cursor-default md:cursor-pointer transition-transform duration-300 ${
           isInteracting ? 'scale-98' : 'hover:scale-[1.015]'
         }`}
         style={{ minHeight: '440px' }}

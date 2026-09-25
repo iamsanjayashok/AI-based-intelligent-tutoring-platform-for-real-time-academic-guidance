@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Sidebar from './Sidebar';
 import { 
   Menu, 
@@ -15,6 +15,30 @@ import { auth } from '../firebase';
 
 export default function Layout({ children, activeTab, setActiveTab, onCreateNew, onGoToLanding }) {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const mainRef = useRef(null);
+
+  // Automatically reset scroll position when tab changes or Layout mounts
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    if (typeof document !== 'undefined') {
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+    }
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0;
+    }
+
+    const timer = setTimeout(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      if (document.documentElement) document.documentElement.scrollTop = 0;
+      if (document.body) document.body.scrollTop = 0;
+      if (mainRef.current) {
+        mainRef.current.scrollTop = 0;
+      }
+    }, 60);
+
+    return () => clearTimeout(timer);
+  }, [activeTab]);
 
   const getPageTitle = (tab) => {
     switch (tab) {
@@ -27,64 +51,7 @@ export default function Layout({ children, activeTab, setActiveTab, onCreateNew,
   };
 
   return (
-    <div className="flex flex-col lg:flex-row min-h-screen bg-[#f8fafc] text-slate-800 antialiased overflow-x-hidden">
-      {/* Top Mobile & Tablet App Bar (Visible on screens < lg) */}
-      <header className="lg:hidden sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 py-3 flex items-center justify-between shadow-2xs">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setIsMobileSidebarOpen(true)}
-            className="p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors active:scale-95"
-            aria-label="Open navigation menu"
-          >
-            <Menu size={22} />
-          </button>
-          
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
-              <GraduationCap size={18} />
-            </div>
-            <div>
-              <span className="font-bold text-sm text-slate-900 tracking-tight block leading-tight">AI Tutor</span>
-              <span className="text-[10px] font-semibold text-blue-600 tracking-wide uppercase">{getPageTitle(activeTab)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {onGoToLanding && (
-            <button
-              onClick={onGoToLanding}
-              className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors text-xs font-semibold hidden sm:flex items-center gap-1 border border-slate-200"
-              title="Project Overview & Specs"
-            >
-              <Presentation size={15} />
-              <span>Overview</span>
-            </button>
-          )}
-
-          <button
-            onClick={onCreateNew}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-all shadow-xs active:scale-95"
-            title="Create new course"
-          >
-            <Plus size={15} />
-            <span className="hidden sm:inline">New Course</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('profile')}
-            className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 text-blue-700 font-bold text-xs flex items-center justify-center active:scale-95 transition-transform"
-            title="View Profile"
-          >
-            {auth.currentUser?.photoURL ? (
-              <img src={auth.currentUser.photoURL} alt="User" className="w-full h-full rounded-full object-cover" />
-            ) : (
-              auth.currentUser?.displayName?.[0] || 'U'
-            )}
-          </button>
-        </div>
-      </header>
-
+    <div className="flex flex-col lg:flex-row min-h-screen bg-[#f8fafc] text-slate-800 antialiased">
       {/* Main Sidebar (Desktop fixed sticky / Mobile off-canvas drawer) */}
       <Sidebar 
         activeTab={activeTab} 
@@ -95,12 +62,72 @@ export default function Layout({ children, activeTab, setActiveTab, onCreateNew,
         onClose={() => setIsMobileSidebarOpen(false)}
       />
 
-      {/* Main App Content Viewport */}
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto min-w-0 pb-28 md:pb-12">
-        <div className="max-w-6xl mx-auto w-full">
-          {children}
-        </div>
-      </main>
+      {/* Main Column (Fixed/Sticky Top App Bar + Content) */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Top App Bar (Remains still at the top as you scroll) */}
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between shadow-2xs">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileSidebarOpen(true)}
+              className="p-2 -ml-1 text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-xl transition-colors active:scale-95 lg:hidden"
+              aria-label="Open navigation menu"
+            >
+              <Menu size={22} />
+            </button>
+            
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold shadow-xs">
+                <GraduationCap size={18} />
+              </div>
+              <div>
+                <span className="font-bold text-sm text-slate-900 tracking-tight block leading-tight">AI Tutor</span>
+                <span className="text-[10px] font-semibold text-blue-600 tracking-wide uppercase">{getPageTitle(activeTab)}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {onGoToLanding && (
+              <button
+                onClick={onGoToLanding}
+                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors text-xs font-semibold flex items-center gap-1 border border-slate-200"
+                title="Project Overview & Specs"
+              >
+                <Presentation size={15} />
+                <span className="hidden sm:inline">Overview</span>
+              </button>
+            )}
+
+            <button
+              onClick={onCreateNew}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-all shadow-xs active:scale-95"
+              title="Create new course"
+            >
+              <Plus size={15} />
+              <span className="hidden sm:inline">New Course</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('profile')}
+              className="w-8 h-8 rounded-full bg-blue-100 border border-blue-200 text-blue-700 font-bold text-xs flex items-center justify-center active:scale-95 transition-transform"
+              title="View Profile"
+            >
+              {auth.currentUser?.photoURL ? (
+                <img src={auth.currentUser.photoURL} alt="User" className="w-full h-full rounded-full object-cover" />
+              ) : (
+                auth.currentUser?.displayName?.[0] || 'U'
+              )}
+            </button>
+          </div>
+        </header>
+
+        {/* Main App Content Viewport */}
+        <main ref={mainRef} className="flex-1 p-4 sm:p-6 lg:p-8 min-w-0 pb-28 md:pb-12">
+          <div className="max-w-6xl mx-auto w-full">
+            {children}
+          </div>
+        </main>
+      </div>
 
       {/* Bottom Navigation Bar for Mobile Screens (< md) */}
       <nav 
